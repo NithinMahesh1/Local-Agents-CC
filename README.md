@@ -76,7 +76,7 @@ local-agents-cc
 - On the first start, it runs the router in the background with no window. Then it opens Claude Code. The router keeps running for later sessions until you sign out or restart. If the box does not answer, you get a warning and Claude models still work.
 ### 5. Send work to your box
 - Whole session: in Claude Code, run `/model`, pick "Spark Agents", and press `s` (this session only).
-- Per-task agents: copy the example agent file to `~/.claude/agents/`. Set its `model:` line to your local model name. Then ask Claude to "fan out spark agents".
+- Per-task agents: copy the example agent file to `~/.claude/agents/`. If your local model name is not `local-model`, change its `model:` line to that name. Then ask Claude to give a task to `spark-agent`.
 - Commands for macOS and Linux:
 ```bash
 cp "$(npm root -g)/local-agents-cc/examples/agents/spark-agent.md" ~/.claude/agents/
