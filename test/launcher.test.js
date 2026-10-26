@@ -247,6 +247,21 @@ function setUpSession(port, settings = SETTINGS_BEFORE) {
   return { env, outFile, settingsFile };
 }
 
+// An environment where claude is found on PATH but cannot be started. Windows: the claude.cmd
+// file needs cmd.exe, and ComSpec points to a program that does not exist. macOS and Linux:
+// a claude script that names an interpreter that does not exist.
+function makeUnstartableEnv(env, dir) {
+  if (process.platform === 'win32') {
+    return { ...env, ComSpec: path.join(dir, 'no-such-folder', 'cmd.exe') };
+  }
+  const binDir = path.join(dir, 'broken-bin');
+  fs.mkdirSync(binDir);
+  const file = path.join(binDir, 'claude');
+  fs.writeFileSync(file, '#!/nonexistent/interpreter\n');
+  fs.chmodSync(file, 0o755);
+  return { ...env, PATH: binDir };
+}
+
 function signalListenerCounts() {
   return ['SIGINT', 'SIGTERM', 'SIGHUP'].map((name) => process.listenerCount(name));
 }
@@ -606,11 +621,7 @@ describe('main', { timeout: 60000 }, () => {
     const server = await listen(healthHandler('ok'));
     try {
       const session = setUpSession(server.address().port);
-      // A folder where the program should be: it is found on PATH, but it cannot be started.
-      const brokenName = process.platform === 'win32' ? 'claude.exe' : 'claude';
-      const binDir = path.join(path.dirname(session.env.CLAUDE_CONFIG_DIR), 'broken-bin');
-      fs.mkdirSync(path.join(binDir, brokenName), { recursive: true });
-      const env = { ...session.env, PATH: binDir };
+      const env = makeUnstartableEnv(session.env, path.dirname(session.env.CLAUDE_CONFIG_DIR));
       const stderr = makeSink();
       const listenersBefore = signalListenerCounts();
 
@@ -618,6 +629,43 @@ describe('main', { timeout: 60000 }, () => {
 
       assert.match(stderr.text, /could not start claude/);
       assert.deepEqual(signalListenerCounts(), listenersBefore);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('stops with a message when starting claude throws an error at once', async () => {
+    const server = await listen(healthHandler('ok'));
+    try {
+      const { env, outFile } = setUpSession(server.address().port);
+      const stderr = makeSink();
+      const listenersBefore = signalListenerCounts();
+
+      // An argument with a null byte: Node refuses to start any program with it.
+      assert.equal(await main(['-p', 'a\0b'], { env, stdout: makeSink(), stderr }), 1);
+
+      assert.match(stderr.text, /could not start claude/);
+      assert.equal(fs.existsSync(outFile), false, 'the fake claude must not run');
+      assert.deepEqual(signalListenerCounts(), listenersBefore);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  // A .cmd file is started through cmd.exe, which cannot pass a line break inside an argument.
+  it('stops with a message for a line break when claude is a .cmd file', {
+    skip: process.platform === 'win32' ? false : 'Windows only',
+  }, async () => {
+    const server = await listen(healthHandler('ok'));
+    try {
+      const { env, outFile } = setUpSession(server.address().port);
+      const stderr = makeSink();
+
+      const code = await main(['-p', 'line one\nline two'], { env, stdout: makeSink(), stderr });
+
+      assert.equal(code, 1);
+      assert.match(stderr.text, /could not start claude: cmd\.exe cannot pass a line break/);
+      assert.equal(fs.existsSync(outFile), false, 'the fake claude must not run');
     } finally {
       await closeServer(server);
     }

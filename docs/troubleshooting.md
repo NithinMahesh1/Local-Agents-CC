@@ -88,6 +88,12 @@ kill $(lsof -t -iTCP:8799 -sTCP:LISTEN)
 - Fix: Install Claude Code (https://github.com/anthropics/claude-code).
 - Fix: Open a new terminal.
 
+## "cmd.exe cannot pass a line break in an argument to claude.cmd"
+
+- Cause: On Windows, Claude Code installed with npm is a `.cmd` file, and cmd.exe cannot pass an argument with a line break to it. For example, a prompt with several lines after `-p`.
+- Fix: Put the prompt on one line.
+- Fix: Install the native Claude Code, which gives `claude.exe`.
+
 ## Answers are slow with many agents
 
 - Cause: One box serves only a few agents at once. On a DGX Spark, it serves about 8 agents, or about 6 with gpt-oss-120b.
