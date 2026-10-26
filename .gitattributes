@@ -1,0 +1,6 @@
+# Keep text files the same on every platform.
+* text=auto eol=lf
+
+# Windows command files keep Windows line endings.
+*.cmd text eol=crlf
+*.bat text eol=crlf

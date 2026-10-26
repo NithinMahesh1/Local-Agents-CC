@@ -1,0 +1,50 @@
+{
+  "name": "local-agents-cc",
+  "version": "0.1.0",
+  "description": "Run a local model inside Claude Code, next to your Claude plan models. A small local router sends each request by model name. Tested on NVIDIA DGX Spark.",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "local-llm",
+    "local-model",
+    "vllm",
+    "dgx-spark",
+    "nvidia",
+    "router",
+    "proxy",
+    "agents",
+    "cli"
+  ],
+  "homepage": "https://github.com/NithinMahesh1/Local-Agents-CC#readme",
+  "bugs": {
+    "url": "https://github.com/NithinMahesh1/Local-Agents-CC/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NithinMahesh1/Local-Agents-CC.git"
+  },
+  "license": "MIT",
+  "author": "Nithin Mahesh",
+  "type": "module",
+  "bin": {
+    "local-agents-cc": "bin/local-agents-cc.js",
+    "spark-router": "bin/spark-router.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "examples/",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
