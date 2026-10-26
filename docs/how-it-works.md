@@ -97,7 +97,7 @@ An example log line is: `14:02:11 info: POST /v1/messages model=local-model -> B
 
 ## The settings guard
 In `/model`, "Spark Agents" followed by `s` applies to this session only. Enter saves the local model as the default for all sessions, in Claude Code's settings file: `~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json` when `CLAUDE_CONFIG_DIR` is set.
-Plain `claude` cannot reach the local model. So when the session ends, the guard changes that one `"model"` line back to the default from before the session, or removes the line if there was no default, and prints a note.
+Plain `claude` cannot reach the local model. So when the session ends, the guard changes that one `"model"` line back to the default from before the session, or removes the line if there was no default, and prints a note. When the default before the session already was a local model name (an earlier session did not clean up), the guard removes the line, so Claude Code uses the default model for your plan.
 Every other byte of the file stays the same. The guard writes a new file and swaps it in with one rename, so a crash cannot leave half a file.
 If the guard cannot change the file, it prints a WARNING with the file path.
 
