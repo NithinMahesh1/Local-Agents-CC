@@ -30,7 +30,7 @@ All other arguments go to claude unchanged. Examples:
   local-agents-cc --all-local -c            continue the last session, all on the box
 
 Local model in a normal session:
-  agents:        ask Claude to "fan out spark agents" (needs a spark-agent agent file;
+  agents:        ask Claude to give a task to spark-agent (needs the agent file:
                  see examples/agents/spark-agent.md in this package)
   whole session: /model -> "Spark Agents" -> press s (this session only)
 
@@ -38,6 +38,7 @@ Router: ${routerUrl} (SPARK_ROUTER_PORT changes it),
   started by local-agents-cc when needed.
 Logs:   ${logDir}
 Setup:  https://github.com/NithinMahesh1/Local-Agents-CC#readme
+All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/command-line.md
 `;
 }
 

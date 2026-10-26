@@ -127,6 +127,7 @@ All settings, log locations and examples: [docs/configuration.md](docs/configura
 - Agents cannot start more agents. The load on the box stays predictable. Shell commands get a 10-minute limit.
 - It stops with an error if the box does not answer.
 - Everything the session reads goes to the box. Keep credentials, connection strings and customer data out of these sessions.
+- Every other option, and how Claude Code options pass through: [docs/command-line.md](docs/command-line.md).
 
 ## Security
 - The router listens on `127.0.0.1` only. Other computers cannot reach it.
@@ -194,6 +195,7 @@ No. Claude requests go to Anthropic, as before. Requests for the local model go 
 
 ## Documentation
 - [How it works](docs/how-it-works.md): the request flow, the routing rule and the safety rules.
+- [Command-line options](docs/command-line.md): every option of `local-agents-cc` and `spark-router`, with examples.
 - [Configuration](docs/configuration.md): every setting, the key file and the log files.
 - [DGX Spark notes](docs/dgx-spark.md): serving a model on a DGX Spark with vLLM.
 - [Troubleshooting](docs/troubleshooting.md): error messages and their fixes.
