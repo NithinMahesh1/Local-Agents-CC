@@ -1,0 +1,65 @@
+name: Bug report
+description: Something does not work the way the docs say.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report. Do not paste API keys, your box's address or private code. For a security problem, use the private report in the Security tab (see SECURITY.md), not an issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |-
+        1. Run `local-agents-cc ...`
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: local-agents-cc version
+      description: Output of `spark-router --version`.
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: claude-code
+    attributes:
+      label: Claude Code version
+      description: Output of `claude --version`.
+  - type: input
+    id: server
+    attributes:
+      label: Model server and model
+      description: For example, vLLM with gpt-oss-120b.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Router log lines
+      description: Lines from router.log or router-errors.log (see docs/troubleshooting.md). They never hold keys or message text, but remove your box's address.
+      render: text

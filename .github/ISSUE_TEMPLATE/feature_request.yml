@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a change or a new feature.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: For a large change, or anything that adds a dependency, please open this issue before you write code. The project keeps zero runtime dependencies on purpose.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem do you want to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you suggest?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What else did you try or consider?
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
