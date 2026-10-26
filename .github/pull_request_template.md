@@ -1,10 +1,17 @@
 ## Summary
+
 <!-- What does this change do? One or two sentences. -->
+
 ## Why
+
 <!-- The problem it solves. Link the issue: Fixes #123 -->
+
 ## How I tested it
+
 <!-- The commands you ran and their results. -->
+
 ## Checklist
+
 - [ ] The PR title uses Conventional Commits (for example `fix: keep the query string on box requests`).
 - [ ] `npm test` passes.
 - [ ] Tests cover the changed behavior.

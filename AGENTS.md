@@ -1,12 +1,15 @@
 # Agent instructions
+
 This project is Local-Agents-CC, an npm package that routes requests between Claude Code and a local model server.
 
 ## Commands
+
 - `npm test`
 - `node bin/local-agents-cc.js --help`
 - `node bin/spark-router.js --help`
 
 ## Rules
+
 - This project has zero runtime dependencies. Do not add packages, and never run `npm install <package>`.
 - Use Node.js 22 or later and ES modules. Import built-in modules with the `node:` prefix.
 - Follow the code style: 2-space indent, single quotes, semicolons, lines of at most 100 characters, and braces for every control flow body.
@@ -25,6 +28,7 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 - Never put keys, real hostnames, IP addresses other than `127.0.0.1`, or other private data in code, tests, docs, or commits.
 
 ## Where things are
+
 - `bin/local-agents-cc.js`: The launcher command.
 - `bin/spark-router.js`: The router command.
 - `src/config.js`: Settings from environment variables.
@@ -39,6 +43,7 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 - `examples/agents/spark-agent.md`: An example agent file.
 
 ## Pull requests
+
 - Use Conventional Commits for titles (for example `feat:` or `fix:`).
 - Send one focused change per pull request.
 - A human must review the entire diff before opening the pull request.
