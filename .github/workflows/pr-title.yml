@@ -1,0 +1,31 @@
+name: PR title
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # Pull requests are squash-merged, so the title becomes the commit
+      # message that Release Please reads for the version and the changelog.
+      - name: Check the title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: >-
+          node -e 'const title = process.env.PR_TITLE ?? "";
+          const conventional = /^(?:feat|fix|docs|refactor|perf|test|build|ci|chore|revert)(?:\([a-z0-9._/-]+\))?!?: .+/u;
+          if (!conventional.test(title)) {
+            console.error("The PR title must use Conventional Commits, for example: fix: keep the query string on box requests");
+            process.exit(1);
+          }'
