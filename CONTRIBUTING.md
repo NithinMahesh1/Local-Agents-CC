@@ -84,6 +84,7 @@ All changes to the router must keep these rules:
 - Read the model name only from JSON requests.
 - Never send the `Authorization`, `x-api-key`, or `Cookie` header to the local model server.
 - Keep the Anthropic address fixed in the code.
+- Never let a request path change the destination host.
 - Never log headers, query strings, message text, or keys.
 
 ## Documentation

@@ -71,6 +71,7 @@ The connection to the box or Anthropic must open within 15 seconds.
 The router returns HTTP 502 if the box or Anthropic cannot be reached.
 The router returns an Anthropic-style error body when it returns HTTP 502.
 The router returns HTTP 413 if a request body is larger than 256 MiB.
+The router returns HTTP 400 if the request URL cannot be parsed.
 
 ## Health check
 
@@ -130,5 +131,6 @@ The router only listens on `127.0.0.1`.
 The router only accepts requests where the Host header is `127.0.0.1` or `localhost`.
 The router only routes JSON requests.
 The Anthropic address is fixed in the code.
+A request path cannot change the destination host. For example, a request for `/a/..//other.host/v1/messages` still goes to Anthropic.
 The router never logs keys.
 The router is not a sandbox. Any program that runs as your user can use the router and the box. Any such program can also read the key file.

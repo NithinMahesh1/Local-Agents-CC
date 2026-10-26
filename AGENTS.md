@@ -23,6 +23,7 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
   - Read the model name only from JSON requests.
   - Never send `Authorization`, `x-api-key`, or `Cookie` headers to the local model.
   - Keep the Anthropic address fixed in the code.
+  - Never let a request path change the destination host.
   - Never log headers, query strings, message text, or keys.
 - Write documentation in plain English. Update `README.md`, `docs/`, and `--help` texts together when changing settings or behavior.
 - Never put keys, real hostnames, IP addresses other than `127.0.0.1`, or other private data in code, tests, docs, or commits.
