@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/NithinMahesh1/Local-Agents-CC#readme
+    about: Read the README for setup and configuration.
+  - name: Troubleshooting
+    url: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/troubleshooting.md
+    about: Check the common problems and their fixes before you open a bug report.
+  - name: Report a security problem
+    url: https://github.com/NithinMahesh1/Local-Agents-CC/security/advisories/new
+    about: Send a private report. Do not open a public issue for a security problem.
