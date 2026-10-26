@@ -10,8 +10,15 @@ test('1. {"model":"m","messages":[]} -> clamped false, same Buffer', () => {
   assert.equal(result.body, body);
 });
 
-test('2. {"model":"m","output_config":{"effort":"max"},"messages":[{"role":"user","content":"hi"}]} -> clamped true, effort high', () => {
-  const obj = { model: 'm', output_config: { effort: 'max' }, messages: [{ role: 'user', content: 'hi' }] };
+test(
+  '2. {"model":"m","output_config":{"effort":"max"},' +
+    '"messages":[{"role":"user","content":"hi"}]} -> clamped true, effort high',
+  () => {
+  const obj = {
+    model: 'm',
+    output_config: { effort: 'max' },
+    messages: [{ role: 'user', content: 'hi' }],
+  };
   const body = Buffer.from(JSON.stringify(obj));
   const result = clampBoxEffort(body);
   assert.equal(result.clamped, true);
@@ -19,8 +26,15 @@ test('2. {"model":"m","output_config":{"effort":"max"},"messages":[{"role":"user
   assert.deepStrictEqual(parsed.output_config.effort, 'high');
 });
 
-test('3. {"model":"m","output_config":{"effort":"xhigh"},"messages":[{"role":"user","content":"hi"}]} -> clamped true, effort high', () => {
-  const obj = { model: 'm', output_config: { effort: 'xhigh' }, messages: [{ role: 'user', content: 'hi' }] };
+test(
+  '3. {"model":"m","output_config":{"effort":"xhigh"},' +
+    '"messages":[{"role":"user","content":"hi"}]} -> clamped true, effort high',
+  () => {
+  const obj = {
+    model: 'm',
+    output_config: { effort: 'xhigh' },
+    messages: [{ role: 'user', content: 'hi' }],
+  };
   const body = Buffer.from(JSON.stringify(obj));
   const result = clampBoxEffort(body);
   assert.equal(result.clamped, true);
@@ -44,7 +58,11 @@ test('5. effort "MAX" -> clamped false', () => {
   assert.equal(result.clamped, false);
 });
 
-test('6. {"output_config":{"effort":"low"},"messages":[{"content":[{"type":"tool_use","input":{"output_config":{"effort":"max"},"effort":"xhigh"}}]}]} -> clamped false', () => {
+test(
+  '6. {"output_config":{"effort":"low"},' +
+    '"messages":[{"content":[{"type":"tool_use","input":{"output_config":{"effort":"max"},' +
+      '"effort":"xhigh"}}]}]} -> clamped false',
+  () => {
   const obj = {
     output_config: { effort: 'low' },
     messages: [{
@@ -67,7 +85,10 @@ test('7. {"reasoning_effort":"max"} -> {"reasoning_effort":"high"}, clamped true
   assert.deepStrictEqual(JSON.parse(result.body.toString('utf8')), { reasoning_effort: 'high' });
 });
 
-test('8. {"a":[{"reasoning_effort":"xhigh"},{"b":{"reasoning_effort":"max"}}],"reasoning_effort":"low"} -> clamped true', () => {
+test(
+  '8. {"a":[{"reasoning_effort":"xhigh"},{"b":{"reasoning_effort":"max"}}],' +
+    '"reasoning_effort":"low"} -> clamped true',
+  () => {
   const obj = {
     a: [{ reasoning_effort: 'xhigh' }, { b: { reasoning_effort: 'max' } }],
     reasoning_effort: 'low'
@@ -82,12 +103,18 @@ test('8. {"a":[{"reasoning_effort":"xhigh"},{"b":{"reasoning_effort":"max"}}],"r
   assert.deepStrictEqual(JSON.parse(result.body.toString('utf8')), expected);
 });
 
-test('9. {"reasoning_effort":{"reasoning_effort":"max"}} -> clamped true; {"reasoning_effort":5} -> clamped false', () => {
+test(
+  '9. {"reasoning_effort":{"reasoning_effort":"max"}} -> clamped true; ' +
+    '{"reasoning_effort":5} -> clamped false',
+  () => {
   const obj1 = { reasoning_effort: { reasoning_effort: 'max' } };
   const body1 = Buffer.from(JSON.stringify(obj1));
   const result1 = clampBoxEffort(body1);
   assert.equal(result1.clamped, true);
-  assert.deepStrictEqual(JSON.parse(result1.body.toString('utf8')), { reasoning_effort: { reasoning_effort: 'high' } });
+  assert.deepStrictEqual(
+    JSON.parse(result1.body.toString('utf8')),
+    { reasoning_effort: { reasoning_effort: 'high' } },
+  );
 
   const obj2 = { reasoning_effort: 5 };
   const body2 = Buffer.from(JSON.stringify(obj2));
@@ -114,7 +141,10 @@ test('11. Raw text: output_config: max { -> clamped false', () => {
   assert.equal(result.body, body);
 });
 
-test('12. Raw text: "output_config" (root is JSON string) -> clamped false; [{"reasoning_effort":"max"}] (root is array) -> clamped true', () => {
+test(
+  '12. Raw text: "output_config" (root is JSON string) -> clamped false; ' +
+    '[{"reasoning_effort":"max"}] (root is array) -> clamped true',
+  () => {
   const body1 = Buffer.from(JSON.stringify('output_config'));
   const result1 = clampBoxEffort(body1);
   assert.equal(result1.clamped, false);
@@ -126,12 +156,17 @@ test('12. Raw text: "output_config" (root is JSON string) -> clamped false; [{"r
   assert.deepStrictEqual(JSON.parse(result2.body.toString('utf8')), [{ reasoning_effort: 'high' }]);
 });
 
-test('13. Raw text with large numbers and precise floats -> clamped true and exact text preserved', () => {
+test(
+  '13. Raw text with large numbers and precise floats -> ' +
+    'clamped true and exact text preserved',
+  () => {
   // We need to use JSON.rawJSON for the numbers to be preserved during stringify
   // because we're simulating the behavior of JSON.parse with the reviver.
   // Since we can't easily create a rawJSON object without a real JSON.parse,
   // we'll construct the buffer with the literal text.
-  const text = '{"output_config":{"effort":"max"},"id":12345678901234567890,"f":0.1000000000000000055511151231257827,"n":1.0,"e":1E5}';
+  const text = '{"output_config":{"effort":"max"},' +
+    '"id":12345678901234567890,"f":0.1000000000000000055511151231257827,' +
+    '"n":1.0,"e":1E5}';
   const body = Buffer.from(text);
 
   // However, for clampBoxEffort to work, we need to make sure the reviver actually
@@ -148,7 +183,10 @@ test('13. Raw text with large numbers and precise floats -> clamped true and exa
   assert.ok(resText.includes('1E5'));
 });
 
-test('14. {"output_config":{"effort":"max"},"text":"héllo ✓ 日本 😀"} -> text preserved', () => {
+test(
+  '14. {"output_config":{"effort":"max"},' +
+    '"text":"héllo ✓ 日本 😀"} -> text preserved',
+  () => {
   const obj = { output_config: { effort: 'max' }, text: 'héllo ✓ 日本 😀' };
   const body = Buffer.from(JSON.stringify(obj));
   const result = clampBoxEffort(body);
@@ -157,7 +195,11 @@ test('14. {"output_config":{"effort":"max"},"text":"héllo ✓ 日本 😀"} -> 
 });
 
 test('15. Result of test 2 is compact JSON', () => {
-  const obj = { model: 'm', output_config: { effort: 'max' }, messages: [{ role: 'user', content: 'hi' }] };
+  const obj = {
+    model: 'm',
+    output_config: { effort: 'max' },
+    messages: [{ role: 'user', content: 'hi' }],
+  };
   const body = Buffer.from(JSON.stringify(obj));
   const result = clampBoxEffort(body);
   // result.body should be compact JSON.

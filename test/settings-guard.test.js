@@ -121,7 +121,10 @@ test('readSavedModel', async (t) => {
       assert.strictEqual(readSavedModel(modelIsString), 'opus');
 
       const bomFile = path.join(tmpDir, 'bom.json');
-      const bomContent = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), Buffer.from(JSON.stringify({ model: 'sonnet' }))]);
+      const bomContent = Buffer.concat([
+        Buffer.from([0xEF, 0xBB, 0xBF]),
+        Buffer.from(JSON.stringify({ model: 'sonnet' })),
+      ]);
       fs.writeFileSync(bomFile, bomContent);
       assert.strictEqual(readSavedModel(bomFile), 'sonnet');
     });
@@ -133,9 +136,18 @@ test('readSavedModel', async (t) => {
 test('claudeSettingsPath', async (t) => {
   await t.test('15. returns correct path based on env', () => {
     const dir = path.join(os.tmpdir(), 'claude-config');
-    assert.strictEqual(claudeSettingsPath({ CLAUDE_CONFIG_DIR: dir }), path.join(dir, 'settings.json'));
-    assert.strictEqual(claudeSettingsPath({}), path.join(os.homedir(), '.claude', 'settings.json'));
-    assert.strictEqual(claudeSettingsPath({ CLAUDE_CONFIG_DIR: '  ' }), path.join(os.homedir(), '.claude', 'settings.json'));
+    assert.strictEqual(
+      claudeSettingsPath({ CLAUDE_CONFIG_DIR: dir }),
+      path.join(dir, 'settings.json'),
+    );
+    assert.strictEqual(
+      claudeSettingsPath({}),
+      path.join(os.homedir(), '.claude', 'settings.json'),
+    );
+    assert.strictEqual(
+      claudeSettingsPath({ CLAUDE_CONFIG_DIR: '  ' }),
+      path.join(os.homedir(), '.claude', 'settings.json'),
+    );
   });
 });
 
@@ -184,13 +196,19 @@ test('restoreSavedModel', async (t) => {
       const expectedText = '{\n  "model": "opus",\n  "theme": "dark"\n}\n';
       assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), expectedText);
       assert.strictEqual(notes.length, 1);
-      assert.strictEqual(notes[0], '/model had saved local-model as the default for all sessions - changed it back to opus.');
+      assert.strictEqual(
+        notes[0],
+        '/model had saved local-model as the default for all sessions - changed it back to opus.',
+      );
       assert.strictEqual(fs.existsSync(settingsPath + '.local-agents-cc.tmp'), false);
     });
 
     await t.test('19. preserves BOM if present', async () => {
       const settingsPathWithBom = path.join(tmpDir, 'bom-restore.json');
-      const bomContent = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), Buffer.from('{\n  "model": "local-model",\n  "theme": "dark"\n}\n')]);
+      const bomContent = Buffer.concat([
+        Buffer.from([0xEF, 0xBB, 0xBF]),
+        Buffer.from('{\n  "model": "local-model",\n  "theme": "dark"\n}\n'),
+      ]);
       fs.writeFileSync(settingsPathWithBom, bomContent);
 
       const settingsPathNoBom = path.join(tmpDir, 'no-bom-restore.json');
@@ -249,7 +267,11 @@ test('restoreSavedModel', async (t) => {
         modelBefore: '',
         note: (m) => notes.push(m)
       });
-      assert.strictEqual(notes[0], '/model had saved local-model as the default for all sessions - changed it back to the built-in default.');
+      assert.strictEqual(
+        notes[0],
+        '/model had saved local-model as the default for all sessions - changed it back to ' +
+        'the built-in default.',
+      );
     });
 
     if (process.platform !== 'win32') {

@@ -13,7 +13,7 @@ test('parseArgs(["--all-local"]) -> allLocal true, claudeArgs []', () => {
   assert.deepEqual(result.claudeArgs, []);
 });
 
-test('parseArgs(["-c", "--all-local", "-p", "x"]) -> allLocal true, claudeArgs ["-c", "-p", "x"]', () => {
+test('parseArgs(["-c", "--all-local", "-p", "x"]) -> allLocal, args ["-c", "-p", "x"]', () => {
   const result = parseArgs(['-c', '--all-local', '-p', 'x']);
   assert.strictEqual(result.allLocal, true);
   assert.deepEqual(result.claudeArgs, ['-c', '-p', 'x']);
@@ -137,7 +137,8 @@ test('buildSession case-insensitive env key matching', () => {
     allLocal: false,
     claudeArgs: [],
   });
-  // exactly one key of env matches /^anthropic_base_url$/i; it is ANTHROPIC_BASE_URL with the routerUrl.
+  // exactly one key of env matches /^anthropic_base_url$/i; it is
+  // ANTHROPIC_BASE_URL with the routerUrl.
   const matches = Object.keys(env).filter((k) => /^anthropic_base_url$/i.test(k));
   assert.strictEqual(matches.length, 1);
   assert.strictEqual(env.ANTHROPIC_BASE_URL, 'http://new');

@@ -24,7 +24,8 @@ export const DEFAULT_LOCAL_URL = 'http://your-box.local:8000';
  *   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
  *   SPARK_ROUTER_LOCAL_MODELS  comma-separated model names that go to the box (default local-model)
  *   SPARK_ROUTER_LOCAL_URL     the box's address (default http://your-box.local:8000)
- *   SPARK_ROUTER_KEY_FILE      file with the box's API key (default <home>/.config/local-model/api-key)
+ *   SPARK_ROUTER_KEY_FILE      file with the box's API key (default
+ *     <home>/.config/local-model/api-key)
  *   SPARK_ROUTER_LOG_DIR       folder for the router's log files (default: see defaultLogDir)
  *
  * @param {NodeJS.ProcessEnv} [env]
@@ -154,7 +155,9 @@ function parseLocalUrl(value) {
     return DEFAULT_LOCAL_URL;
   }
   if (!URL.canParse(text) || !['http:', 'https:'].includes(new URL(text).protocol)) {
-    throw new Error(`SPARK_ROUTER_LOCAL_URL must be an http:// or https:// address (got "${value}")`);
+    throw new Error(
+      `SPARK_ROUTER_LOCAL_URL must be an http:// or https:// address (got "${value}")`
+    );
   }
   return text;
 }

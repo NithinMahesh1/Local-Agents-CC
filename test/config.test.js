@@ -86,7 +86,8 @@ test('7. SPARK_ROUTER_PORT error handling', () => {
 test('8. SPARK_ROUTER_LOCAL_MODELS parsing', () => {
   const env = { SPARK_ROUTER_LOCAL_MODELS: ' A, b ,a,, ' };
   const result = readConfig(env, 'linux');
-  // Note: 'a' is a duplicate of 'A' (case-insensitive) so it should be filtered out if isLocalModel is used.
+  // Note: 'a' is a duplicate of 'A' (case-insensitive) so it should be filtered out if
+  // isLocalModel is used.
   // Wait, isLocalModel is used in the filter.
   // 'A' -> localModels includes 'A'
   // 'b' -> localModels includes 'b'
@@ -106,7 +107,10 @@ test('8. SPARK_ROUTER_LOCAL_MODELS parsing', () => {
 });
 
 test('9. SPARK_ROUTER_LOCAL_URL parsing', () => {
-  assert.strictEqual(readConfig({ SPARK_ROUTER_LOCAL_URL: 'https://box.example:8443' }, 'linux').localUrl, 'https://box.example:8443');
+  assert.strictEqual(
+    readConfig({ SPARK_ROUTER_LOCAL_URL: 'https://box.example:8443' }, 'linux').localUrl,
+    'https://box.example:8443',
+  );
 
   assert.throws(() => {
     readConfig({ SPARK_ROUTER_LOCAL_URL: 'ftp://x' }, 'linux');
