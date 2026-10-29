@@ -30,8 +30,6 @@ this file when the list is empty.
 
 ## Fixes from the code review
 
-- `claude-agents --missed-tool-calls --help` prints the report, not the help text. Check `--help`
-  first in `main` (`src/launcher.js`), and add a test.
 - `docs/how-it-works.md`: the `--all-local` section does not say that the launcher also passes
   `--plugin-dir=<package folder>/plugin`, or what the plugin's Stop hook does. Add one bullet.
 - A relative path in `SPARK_MISSED_EVENTS_FILE` is used as it is. The Stop hook and

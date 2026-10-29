@@ -13,7 +13,8 @@ import {
   HEALTH_PATH,
   settingsFile,
   readSettingsFile,
-  loadConfig
+  loadConfig,
+  SettingsFileError
 } from '../src/config.js';
 
 test('1. readConfig linux default', () => {
@@ -265,6 +266,16 @@ test('29. readSettingsFile: invalid JSON and schema', () => {
     const f4 = path.join(tmpDir, 'bad-models.json');
     fs.writeFileSync(f4, '{"localModels": "m"}');
     assert.throws(() => readSettingsFile(f4), /"localModels" in the settings file/);
+
+    for (const models of ['[]', '[""]', '["  "]']) {
+      const f5 = path.join(tmpDir, 'empty-models.json');
+      fs.writeFileSync(f5, `{"localModels": ${models}}`);
+      assert.throws(() => readSettingsFile(f5), /must name at least one model/);
+    }
+
+    for (const file of [f1, f2, f3, f4]) {
+      assert.throws(() => readSettingsFile(file), SettingsFileError);
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -285,4 +296,16 @@ test('30. loadConfig uses settings.json', () => {
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('31. a bad value from the settings file is a SettingsFileError; a bad variable is not', () => {
+  assert.throws(
+    () => readConfig({ HOME: '/home/u' }, 'linux', { localUrl: 'ftp://x' }),
+    SettingsFileError,
+  );
+  assert.throws(
+    () => readConfig({ HOME: '/home/u', SPARK_ROUTER_LOCAL_URL: 'ftp://x' }, 'linux', {}),
+    (error) => !(error instanceof SettingsFileError)
+      && /SPARK_ROUTER_LOCAL_URL/.test(error.message),
+  );
 });

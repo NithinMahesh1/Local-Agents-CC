@@ -696,3 +696,40 @@ describe('main: --setup and --benchmark must be used alone', () => {
     });
   }
 });
+
+describe('main: help and settings errors', () => {
+  it('--missed-tool-calls --help shows the help, not the report', async () => {
+    const dir = makeDir('missed-help');
+    const stdout = makeSink();
+    const stderr = makeSink();
+    const code = await main(['--missed-tool-calls', '--help'], {
+      env: { HOME: dir, USERPROFILE: dir }, stdout, stderr,
+    });
+    assert.strictEqual(code, 0);
+    assert.match(stdout.text, /claude-agents - Claude Code with/);
+  });
+
+  it('a broken settings file stops with a hint to run --setup', async () => {
+    const dir = makeDir('bad-settings');
+    fs.mkdirSync(path.join(dir, '.config', 'local-model'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.config', 'local-model', 'settings.json'), 'not json');
+    const stdout = makeSink();
+    const stderr = makeSink();
+    const code = await main([], { env: { HOME: dir, USERPROFILE: dir }, stdout, stderr });
+    assert.strictEqual(code, 1);
+    assert.match(stderr.text, /is not valid JSON/);
+    assert.match(stderr.text, /run claude-agents --setup to replace the saved settings/);
+  });
+
+  it('a bad environment variable stops without the --setup hint', async () => {
+    const dir = makeDir('bad-variable');
+    const stdout = makeSink();
+    const stderr = makeSink();
+    const code = await main([], {
+      env: { HOME: dir, USERPROFILE: dir, SPARK_ROUTER_PORT: 'abc' }, stdout, stderr,
+    });
+    assert.strictEqual(code, 1);
+    assert.match(stderr.text, /SPARK_ROUTER_PORT/);
+    assert.doesNotMatch(stderr.text, /--setup/);
+  });
+});

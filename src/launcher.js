@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runBenchmark } from './benchmark.js';
 import {
-  HEALTH_PATH, isLocalModel, loadConfig, missedEventsFile, readKeyFile,
+  HEALTH_PATH, SettingsFileError, isLocalModel, loadConfig, missedEventsFile, readKeyFile,
 } from './config.js';
 import { formatMissedSummary, parseMissedEvents, summarizeMissedEvents } from './missed-events.js';
 import { buildSession, helpText, parseArgs } from './session.js';
@@ -174,7 +174,7 @@ export async function main(argv, {
       const key = readKeyFile(keyFile);
       return await runBenchmark({ localUrl, model: localModels[0], key, output: stdout });
     } catch (error) {
-      note(error.message);
+      noteConfigError(error, note);
       return 1;
     }
   }
@@ -183,7 +183,8 @@ export async function main(argv, {
     note('--missed-events-file works only together with --missed-tool-calls.');
     return 1;
   }
-  if (missedToolCalls) {
+  // With --help, show the help instead of the report.
+  if (missedToolCalls && !showHelp) {
     if (eventsFileArg === '') {
       note('--missed-events-file needs a file path.');
       return 1;
@@ -195,7 +196,7 @@ export async function main(argv, {
   try {
     config = loadConfig(env, platform);
   } catch (error) {
-    note(error.message);
+    noteConfigError(error, note);
     return 1;
   }
   const localModel = config.localModels[0];
@@ -253,6 +254,14 @@ export async function main(argv, {
     return await runClaude(claudePath, session, platform, note);
   } finally {
     restoreSavedModel({ settingsPath, localModel, modelBefore, note });
+  }
+}
+
+// Prints a settings error. For a problem in the settings file, also says how to replace it.
+function noteConfigError(error, note) {
+  note(error.message);
+  if (error instanceof SettingsFileError) {
+    note('run claude-agents --setup to replace the saved settings.');
   }
 }
 

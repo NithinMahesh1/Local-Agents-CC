@@ -39,16 +39,22 @@ node bin/spark-router.js --help
 | :--- | :--- |
 | `bin/claude-agents.js` | The launcher command. |
 | `bin/spark-router.js` | The router command. |
-| `src/config.js` | Settings from environment variables. |
+| `src/config.js` | Settings from environment variables and the settings file. |
+| `src/setup.js` | `claude-agents --setup`: asks for the AI server's address, API key and model name, saves them and checks the AI server. |
+| `src/benchmark.js` | `claude-agents --benchmark`: measures the AI server's time to the first token and tokens per second. |
 | `src/router.js` | The router. |
 | `src/effort.js` | The reasoning effort cap. |
 | `src/session.js` | Launcher settings, arguments, and help text. |
 | `src/launcher.js` | Starts the router and Claude Code. |
 | `src/spawn-command.js` | Finds and starts Claude Code on Windows, macOS, and Linux. |
 | `src/settings-guard.js` | Puts back the saved default model. |
+| `src/stop-nudge.js` | The Stop hook of `--all-local` sessions: sends the model back once when a reply announces a step but makes no tool call, and logs the event. |
+| `src/missed-events.js` | Reads and counts the missed tool call log (`--missed-tool-calls`). |
+| `plugin/` | The Claude Code plugin that `--all-local` sessions load. It holds the Stop hook. |
 | `test/` | One test file per module. |
 | `docs/` | User documentation. |
 | `examples/agents/spark-agent.md` | An example agent file. |
+| `examples/settings/all-local-guarded.json` | Example sandbox and deny settings for `--all-local` sessions. |
 
 ## Code style
 

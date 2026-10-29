@@ -20,6 +20,12 @@ export const DEFAULT_LOCAL_MODEL = 'local-model';
 export const DEFAULT_LOCAL_URL = 'http://your-ai-server.local:8000';
 
 /**
+ * A problem in the settings file that `claude-agents --setup` writes. Running the setup again
+ * replaces the file.
+ */
+export class SettingsFileError extends Error {}
+
+/**
  * Reads the settings from environment variables.
  *
  *   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
@@ -39,6 +45,7 @@ export const DEFAULT_LOCAL_URL = 'http://your-ai-server.local:8000';
  * @returns {{port: number, localModels: string[], localUrl: string, keyFile: string,
  *   logDir: string, routerUrl: string}}
  * @throws {Error} when a variable holds a value that cannot be used
+ * @throws {SettingsFileError} when a value from `settings` cannot be used
  */
 export function readConfig(env = process.env, platform = process.platform, settings = {}) {
   const paths = platform === 'win32' ? path.win32 : path.posix;
@@ -50,10 +57,12 @@ export function readConfig(env = process.env, platform = process.platform, setti
     port,
     localModels: modelsFromEnv !== undefined || settings.localModels === undefined
       ? parseModelList(env.SPARK_ROUTER_LOCAL_MODELS, 'SPARK_ROUTER_LOCAL_MODELS')
-      : parseModelList(settings.localModels.join(','), '"localModels" in the settings file'),
+      : parseModelList(
+        settings.localModels.join(','), '"localModels" in the settings file', SettingsFileError,
+      ),
     localUrl: urlFromEnv !== undefined || settings.localUrl === undefined
       ? parseLocalUrl(env.SPARK_ROUTER_LOCAL_URL, 'SPARK_ROUTER_LOCAL_URL')
-      : parseLocalUrl(settings.localUrl, '"localUrl" in the settings file'),
+      : parseLocalUrl(settings.localUrl, '"localUrl" in the settings file', SettingsFileError),
     keyFile: nonEmpty(env.SPARK_ROUTER_KEY_FILE)
       ?? paths.join(home, '.config', 'local-model', 'api-key'),
     logDir: nonEmpty(env.SPARK_ROUTER_LOG_DIR) ?? defaultLogDir(env, platform, home),
@@ -66,7 +75,8 @@ export function readConfig(env = process.env, platform = process.platform, setti
  * @param {NodeJS.ProcessEnv} [env]
  * @param {NodeJS.Platform} [platform]
  * @returns {ReturnType<typeof readConfig>}
- * @throws {Error} when a variable or the settings file holds a value that cannot be used
+ * @throws {Error} when a variable holds a value that cannot be used
+ * @throws {SettingsFileError} when the settings file cannot be used
  */
 export function loadConfig(env = process.env, platform = process.platform) {
   return readConfig(env, platform, readSettingsFile(settingsFile(env, platform)));
@@ -88,7 +98,8 @@ export function settingsFile(env = process.env, platform = process.platform) {
  * kept, so a later version can add settings.
  * @param {string} file
  * @returns {{localUrl?: string, localModels?: string[]} & Record<string, unknown>}
- * @throws {Error} when the file cannot be read, is not JSON, or holds a value of the wrong type
+ * @throws {SettingsFileError} when the file cannot be read, is not JSON, or holds a value of
+ *   the wrong type
  */
 export function readSettingsFile(file) {
   let text;
@@ -98,23 +109,33 @@ export function readSettingsFile(file) {
     if (error.code === 'ENOENT') {
       return {};
     }
-    throw new Error(`cannot read the settings file ${file} (${error.code ?? 'unknown error'})`);
+    throw new SettingsFileError(
+      `cannot read the settings file ${file} (${error.code ?? 'unknown error'})`,
+    );
   }
   let settings;
   try {
     settings = JSON.parse(text);
   } catch {
-    throw new Error(`the settings file ${file} is not valid JSON. Run claude-agents --setup.`);
+    throw new SettingsFileError(`the settings file ${file} is not valid JSON`);
   }
   if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) {
-    throw new Error(`the settings file ${file} must hold a JSON object`);
+    throw new SettingsFileError(`the settings file ${file} must hold a JSON object`);
   }
   if (settings.localUrl !== undefined && typeof settings.localUrl !== 'string') {
-    throw new Error(`"localUrl" in the settings file ${file} must be a string`);
+    throw new SettingsFileError(`"localUrl" in the settings file ${file} must be a string`);
   }
   if (settings.localModels !== undefined && (!Array.isArray(settings.localModels)
     || !settings.localModels.every((name) => typeof name === 'string'))) {
-    throw new Error(`"localModels" in the settings file ${file} must be a list of strings`);
+    throw new SettingsFileError(
+      `"localModels" in the settings file ${file} must be a list of strings`,
+    );
+  }
+  if (settings.localModels !== undefined
+    && settings.localModels.every((name) => name.trim() === '')) {
+    throw new SettingsFileError(
+      `"localModels" in the settings file ${file} must name at least one model`,
+    );
   }
   return settings;
 }
@@ -227,7 +248,7 @@ function parsePort(value) {
 }
 
 // Splits the comma-separated list. Blank names and repeated names (in any case) are left out.
-function parseModelList(value, source) {
+function parseModelList(value, source, ErrorType = Error) {
   const text = nonEmpty(value);
   if (text === undefined) {
     return [DEFAULT_LOCAL_MODEL];
@@ -237,18 +258,18 @@ function parseModelList(value, source) {
     .filter((name) => name !== '')
     .filter((name, index, all) => all.findIndex((other) => isLocalModel([other], name)) === index);
   if (names.length === 0) {
-    throw new Error(`${source} must name at least one model (got "${value}")`);
+    throw new ErrorType(`${source} must name at least one model (got "${value}")`);
   }
   return names;
 }
 
-function parseLocalUrl(value, source) {
+function parseLocalUrl(value, source, ErrorType = Error) {
   const text = nonEmpty(value);
   if (text === undefined) {
     return DEFAULT_LOCAL_URL;
   }
   if (!URL.canParse(text) || !['http:', 'https:'].includes(new URL(text).protocol)) {
-    throw new Error(
+    throw new ErrorType(
       `${source} must be an http:// or https:// address (got "${value}")`
     );
   }

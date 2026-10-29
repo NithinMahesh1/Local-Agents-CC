@@ -21,7 +21,7 @@ These options can be in any position. `claude-agents` removes them before it sta
 | `--all-local` | Sends every request to your AI server: the main session, all agents and Claude Code's background jobs. No request uses your Claude plan. Web search is off, because it runs on Anthropic's servers. If the AI server does not answer, the command stops with an error. A Stop hook sends the model back once when a reply announces a step but makes no tool call. Details: [The --all-local mode](how-it-works.md#the---all-local-mode). |
 | `--missed-tool-calls` | Shows how often the Stop hook of `--all-local` sessions sent the model back, by kind, model and project, then exits. It starts no router and no claude. It reads `missed-tool-events.jsonl` in the log folder, or the file that `SPARK_MISSED_EVENTS_FILE` names. |
 | `--missed-events-file <file>` | Only together with `--missed-tool-calls`: read this file instead. `--missed-events-file=<file>` also works. Used alone, it is an error. |
-| `--help`, `-h` | Shows the help of `claude-agents`. This works only when `--help` or `-h` is the only argument, or comes only with `--all-local`. In all other cases, the option goes to Claude Code. |
+| `--help`, `-h` | Shows the help of `claude-agents`. This works only when `--help` or `-h` is the only argument, or comes only with `--all-local` or `--missed-tool-calls`. With `--setup` or `--benchmark`, it is an error, because those options work only alone. In all other cases, the option goes to Claude Code. |
 
 `claude-agents --version` shows the version of Claude Code, because `--version` goes to Claude Code. To see the version of this package, use `spark-router --version`.
 

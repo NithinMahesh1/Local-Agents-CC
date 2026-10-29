@@ -383,6 +383,9 @@ describe('setup.js', () => {
 
       assert.strictEqual(code, 0);
       assert.match(output.text, /saved settings cannot be used/);
+      assert.match(output.text, /SPARK_ROUTER_PORT must be a whole number/);
+      assert.match(output.text, /Setup cannot change environment variables/);
+      assert.match(output.text, /this terminal shows what you type/);
       assert.deepStrictEqual(readSettingsFile(sFile), {
         localUrl: 'http://127.0.0.1:9',
         localModels: ['m'],
@@ -619,6 +622,52 @@ describe('setup.js', () => {
 
       const answer = await promise;
       assert.strictEqual(answer, 'ab');
+    });
+
+    const fakeTerminal = () => {
+      const input = new PassThrough();
+      input.isTTY = true;
+      input.setRawMode = () => {};
+      return input;
+    };
+    const sink = () => ({ text: '', write(t) { this.text += t; return true; } });
+
+    test('24. arrow key in application mode (ESC O A)', async () => {
+      const input = fakeTerminal();
+      const reader = createLineReader(input, sink());
+      const promise = reader.question('Q: ');
+      input.write('a\x1bOAb\r');
+      assert.strictEqual(await promise, 'ab');
+      reader.close();
+    });
+
+    test('25. arrow key split over two reads', async () => {
+      const input = fakeTerminal();
+      const reader = createLineReader(input, sink());
+      const promise = reader.question('Q: ');
+      input.write('a\x1b[');
+      await new Promise((resolve) => setImmediate(resolve));
+      input.write('Db\r');
+      assert.strictEqual(await promise, 'ab');
+      reader.close();
+    });
+
+    test('26. Ctrl+C right after a lone ESC still stops the setup', async () => {
+      const input = fakeTerminal();
+      const reader = createLineReader(input, sink());
+      const promise = reader.question('Q: ');
+      input.write('\x1b\x03');
+      await assert.rejects(promise, (error) => error instanceof SetupCancelled);
+      reader.close();
+    });
+
+    test('27. hidesTyping is true only for a terminal', () => {
+      const terminalReader = createLineReader(fakeTerminal(), sink());
+      const pipeReader = createLineReader(new PassThrough(), sink());
+      assert.strictEqual(terminalReader.hidesTyping, true);
+      assert.strictEqual(pipeReader.hidesTyping, false);
+      terminalReader.close();
+      pipeReader.close();
     });
   });
 });

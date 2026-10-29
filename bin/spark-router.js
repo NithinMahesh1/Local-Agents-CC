@@ -16,7 +16,8 @@ Usage:
   spark-router --help     show this help
   spark-router --version  show the version
 
-Settings (environment variables):
+Settings: claude-agents --setup saves the address and the model name in
+<home>/.config/local-model/settings.json. These environment variables win over that file:
   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
   SPARK_ROUTER_LOCAL_MODELS  model names that go to the AI server (default local-model)
   SPARK_ROUTER_LOCAL_URL     your AI server's address (default http://your-ai-server.local:8000)

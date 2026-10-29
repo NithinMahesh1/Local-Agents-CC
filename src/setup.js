@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import {
-  DEFAULT_LOCAL_URL, loadConfig, readConfig, readKeyFile, readSettingsFile, settingsFile,
+  DEFAULT_LOCAL_URL, SettingsFileError, loadConfig, readConfig, readKeyFile, readSettingsFile,
+  settingsFile,
 } from './config.js';
 
 /** Thrown when the user presses Ctrl+C or the input ends before an answer. */
@@ -44,8 +45,16 @@ export async function runSetup({
     try {
       current = loadConfig(env, platform);
     } catch (error) {
-      say(`Note: the saved settings cannot be used (${error.message}).`);
-      say('Setup starts from the defaults and saves new settings.');
+      if (error instanceof SettingsFileError) {
+        say(`Note: the saved settings cannot be used: ${error.message}.`);
+        say('Setup replaces them.');
+      }
+      const variableProblem = envProblem(env, platform);
+      if (variableProblem !== null) {
+        say(`Note: ${variableProblem}.`);
+        say('Setup cannot change environment variables. Fix or remove this one, or');
+        say('claude-agents does not start.');
+      }
       say();
       current = readConfig(withoutRouterVars(env), platform, {});
     }
@@ -85,7 +94,7 @@ export async function runSetup({
         say(`Note: ${name} is set, so its value is used instead of the saved one.`);
       }
     }
-    say('If the router is running, stop it (README: "The router keeps running").');
+    say('If the router is running, stop it (README FAQ: "How do I stop or restart the router?").');
     say('The next claude-agents starts it again with these settings.');
     if (!check.ok) {
       say('The checks above failed. Fix the problem, then run claude-agents --setup again.');
@@ -110,7 +119,8 @@ export async function runSetup({
  * When the input is not a terminal (a pipe or a test), it reads plain lines.
  * @param {NodeJS.ReadableStream & {isTTY?: boolean, setRawMode?: Function}} input
  * @param {NodeJS.WritableStream} output
- * @returns {{question: (prompt: string, options?: {hidden?: boolean}) => Promise<string>,
+ * @returns {{hidesTyping: boolean,
+ *   question: (prompt: string, options?: {hidden?: boolean}) => Promise<string>,
  *   close: () => void}}
  */
 export function createLineReader(input, output) {
@@ -170,7 +180,12 @@ export function createLineReader(input, output) {
   // Raw mode: each key arrives as typed. Enter ends the answer, Ctrl+C stops the setup.
   function pumpTerminal() {
     while (buffer.length > 0 && waiting !== null) {
-      const escape = /^\x1b(\[[0-9;]*[A-Za-z~]|.)?/.exec(buffer);
+      // An arrow key sends ESC [ A or ESC O A. Wait when the rest has not arrived yet. A lone
+      // ESC is dropped at once, so that a Ctrl+C after it still stops the setup.
+      if (/^\x1b(\[[0-9;]*|O)$/.test(buffer)) {
+        break;
+      }
+      const escape = /^\x1b(\[[0-9;]*[A-Za-z~]|O[A-Za-z]|[\x20-\x7e])?/.exec(buffer);
       if (escape !== null) {
         buffer = buffer.slice(escape[0].length);
         continue;
@@ -209,6 +224,8 @@ export function createLineReader(input, output) {
   }
 
   return {
+    /** True when the typing of a hidden answer is not shown (the input is a terminal). */
+    hidesTyping: terminal,
     question(prompt, { hidden = false } = {}) {
       if (waiting !== null) {
         return Promise.reject(new Error('one question at a time'));
@@ -328,9 +345,12 @@ async function askKey(reader, keyFile, say) {
     }
   }
   say('The API key is the key that your AI server checks (for vLLM: VLLM_API_KEY or --api-key).');
+  // Some terminals (for example Git Bash in its own window) do not let a program hide the typing.
+  const prompt = reader.hidesTyping
+    ? 'API key (the typing is not shown): '
+    : 'API key (this terminal shows what you type): ';
   for (let attempt = 0; attempt < 3; attempt++) {
-    const key = (await reader.question('API key (the typing is not shown): ', { hidden: true }))
-      .trim();
+    const key = (await reader.question(prompt, { hidden: true })).trim();
     if (key !== '') {
       return { key, isNew: true };
     }
@@ -355,6 +375,16 @@ async function ask(reader, prompt, fallback) {
   const suffix = fallback === undefined || fallback === '' ? ': ' : ` [${fallback}]: `;
   const answer = (await reader.question(`${prompt}${suffix}`)).trim();
   return answer === '' ? (fallback ?? '') : answer;
+}
+
+// The message of a SPARK_ROUTER_* environment variable that cannot be used, or null.
+function envProblem(env, platform) {
+  try {
+    readConfig(env, platform, {});
+    return null;
+  } catch (error) {
+    return error.message;
+  }
 }
 
 // The environment without the variables that readConfig checks, for a start from the defaults.

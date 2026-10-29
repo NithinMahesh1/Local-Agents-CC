@@ -202,20 +202,8 @@ describe('benchmark.js', () => {
           now,
           timeoutMs: 1000,
         }),
-        /HTTP 500/,
+        (error) => error.message.includes('HTTP 500') && !error.message.includes('API key'),
       );
-      try {
-        await measureRun({
-          localUrl: 'http://127.0.0.1:9/',
-          model: 'm',
-          key: 'k',
-          fetchFn,
-          now,
-          timeoutMs: 1000,
-        });
-      } catch (e) {
-        assert.ok(!e.message.includes('API key'));
-      }
     });
 
     it('rejects on error event', async () => {

@@ -48,12 +48,13 @@ docker run --rm --name vllm --gpus all --ipc=host --network host \
 
 ## Connect your computer
 
-Set these environment variables on your computer:
+On your computer, run `claude-agents --setup`:
 
-- `SPARK_ROUTER_LOCAL_URL=http://your-ai-server.local:8000`
-- `SPARK_ROUTER_LOCAL_MODELS=local-model`
+- Address: the DGX Spark's network name or address, with port 8000, for example `my-ai-server.local:8000`.
+- API key: the same key as `VLLM_API_KEY` in `/etc/vllm/vllm.env`.
+- Model: pick `local-model` from the list (one of the 2 names that `--served-model-name` gives the model).
 
-The key file holds the same key as `VLLM_API_KEY`. See [Configuration](configuration.md) for more details.
+To use environment variables instead, see [Configuration](configuration.md).
 
 ## Network and key safety
 
