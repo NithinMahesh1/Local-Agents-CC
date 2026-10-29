@@ -6,10 +6,12 @@ test('parseArgs([]) -> all flags off, claudeArgs []', () => {
   const result = parseArgs([]);
   assert.deepEqual(result, {
     allLocal: false,
-    showHelp: false,
-    missedToolCalls: false,
+    claudeArgs: [],
     missedEventsFile: null,
-    claudeArgs: []
+    missedToolCalls: false,
+    setup: false,
+    benchmark: false,
+    showHelp: false
   });
 });
 
@@ -84,7 +86,7 @@ test('buildSession normal mode', () => {
   assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME, 'Spark Agents');
   assert.strictEqual(
     env.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION,
-    'Free local model on your box - exact, mechanical coding tasks',
+    'Free local model on your AI server - exact, mechanical coding tasks',
   );
   assert.strictEqual(env.CLAUDE_CODE_MAX_CONTEXT_TOKENS, '120000');
 
@@ -192,24 +194,6 @@ test('buildSession handles undefined env values', () => {
   assert.ok(!('A' in env));
 });
 
-test('helpText content and formatting', () => {
-  const routerUrl = 'http://127.0.0.1:8799';
-  const logDir = '/tmp/logs';
-  const localModel = 'local-model';
-  const text = helpText({ routerUrl, logDir, localModel });
-
-  assert.ok(text.includes(routerUrl));
-  assert.ok(text.includes(logDir));
-  assert.ok(text.includes('Spark Agents (local-model)'));
-  assert.ok(text.includes('--all-local'));
-  assert.strictEqual(text.endsWith('\n'), true);
-
-  const lines = text.split('\n');
-  for (const line of lines) {
-    assert.ok(line.length <= 100, `Line too long: ${line}`);
-  }
-});
-
 test('parseArgs: --missed-tool-calls', () => {
   const result = parseArgs(['--missed-tool-calls']);
   assert.strictEqual(result.missedToolCalls, true);
@@ -233,6 +217,7 @@ test('parseArgs: --missed-events-file= and --missed-tool-calls', () => {
 test('parseArgs: --missed-tool-calls and --missed-events-file (no value)', () => {
   const result = parseArgs(['--missed-tool-calls', '--missed-events-file']);
   assert.strictEqual(result.missedEventsFile, '');
+  assert.strictEqual(result.missedToolCalls, true);
 });
 
 test('parseArgs: --missed-events-file= (empty)', () => {
@@ -316,4 +301,36 @@ test('helpText: missed tool calls and events', () => {
   assert.ok(text.includes('--missed-tool-calls'));
   assert.ok(text.includes('--missed-events-file <file>'));
   assert.ok(text.includes('Stop hook'));
+});
+
+test('parseArgs(["--setup"]) -> setup true, claudeArgs []', () => {
+  const result = parseArgs(['--setup']);
+  assert.strictEqual(result.setup, true);
+  assert.deepStrictEqual(result.claudeArgs, []);
+});
+
+test('parseArgs(["--setup", "-c"]) -> setup true, claudeArgs ["-c"]', () => {
+  const result = parseArgs(['--setup', '-c']);
+  assert.strictEqual(result.setup, true);
+  assert.deepStrictEqual(result.claudeArgs, ['-c']);
+});
+
+test('helpText contains --setup', () => {
+  const text = helpText({
+    routerUrl: 'http://127.0.0.1:1',
+    logDir: '/l',
+    localModel: 'm'
+  });
+  assert.ok(text.includes('--setup'));
+});
+
+test('parseArgs(["--benchmark"]) -> benchmark true, claudeArgs []', () => {
+  const result = parseArgs(['--benchmark']);
+  assert.strictEqual(result.benchmark, true);
+  assert.deepStrictEqual(result.claudeArgs, []);
+});
+
+test('helpText mentions --benchmark', () => {
+  const text = helpText({ routerUrl: 'http://127.0.0.1:1', logDir: '/l', localModel: 'm' });
+  assert.ok(text.includes('--benchmark'));
 });

@@ -1,6 +1,7 @@
 node_modules/
 coverage/
 *.log
+test_output*.txt
 *.tgz
 .DS_Store
 .env

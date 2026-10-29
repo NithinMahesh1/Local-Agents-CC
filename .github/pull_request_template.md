@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] The PR title uses Conventional Commits (for example `fix: keep the query string on box requests`).
+- [ ] The PR title uses Conventional Commits (for example `fix: keep the query string on AI server requests`).
 - [ ] `npm test` passes.
 - [ ] Tests cover the changed behavior.
 - [ ] Docs are updated (README.md, docs/, `--help` texts) when a setting or behavior changes.

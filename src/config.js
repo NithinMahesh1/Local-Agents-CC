@@ -1,5 +1,6 @@
-// Settings for spark-router and claude-agents, read from environment variables.
-// Every setting has a default, so the only file you must create is the box's API key file.
+// Settings for spark-router and claude-agents, read from environment variables and from the
+// settings file that `claude-agents --setup` writes. An environment variable wins over the file.
+// Every setting has a default, so the only file you must create is the AI server's API key file.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,37 +17,106 @@ export const HEALTH_PATH = '/__spark-router/health';
 
 export const DEFAULT_PORT = 8799;
 export const DEFAULT_LOCAL_MODEL = 'local-model';
-export const DEFAULT_LOCAL_URL = 'http://your-box.local:8000';
+export const DEFAULT_LOCAL_URL = 'http://your-ai-server.local:8000';
 
 /**
  * Reads the settings from environment variables.
  *
  *   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
- *   SPARK_ROUTER_LOCAL_MODELS  comma-separated model names that go to the box (default local-model)
- *   SPARK_ROUTER_LOCAL_URL     the box's address (default http://your-box.local:8000)
- *   SPARK_ROUTER_KEY_FILE      file with the box's API key (default
+ *   SPARK_ROUTER_LOCAL_MODELS  comma-separated model names that go to the AI server
+ *     (default local-model)
+ *   SPARK_ROUTER_LOCAL_URL     the AI server's address (default http://your-ai-server.local:8000)
+ *   SPARK_ROUTER_KEY_FILE      file with the AI server's API key (default
  *     <home>/.config/local-model/api-key)
  *   SPARK_ROUTER_LOG_DIR       folder for the router's log files (default: see defaultLogDir)
  *
+ * When SPARK_ROUTER_LOCAL_URL or SPARK_ROUTER_LOCAL_MODELS is not set, the value comes from
+ * `settings` (see readSettingsFile), then from the default.
+ *
  * @param {NodeJS.ProcessEnv} [env]
  * @param {NodeJS.Platform} [platform]
+ * @param {{localUrl?: string, localModels?: string[]}} [settings]
  * @returns {{port: number, localModels: string[], localUrl: string, keyFile: string,
  *   logDir: string, routerUrl: string}}
  * @throws {Error} when a variable holds a value that cannot be used
  */
-export function readConfig(env = process.env, platform = process.platform) {
+export function readConfig(env = process.env, platform = process.platform, settings = {}) {
   const paths = platform === 'win32' ? path.win32 : path.posix;
   const home = homeDir(env, platform);
   const port = parsePort(env.SPARK_ROUTER_PORT);
+  const modelsFromEnv = nonEmpty(env.SPARK_ROUTER_LOCAL_MODELS);
+  const urlFromEnv = nonEmpty(env.SPARK_ROUTER_LOCAL_URL);
   return {
     port,
-    localModels: parseModelList(env.SPARK_ROUTER_LOCAL_MODELS),
-    localUrl: parseLocalUrl(env.SPARK_ROUTER_LOCAL_URL),
+    localModels: modelsFromEnv !== undefined || settings.localModels === undefined
+      ? parseModelList(env.SPARK_ROUTER_LOCAL_MODELS, 'SPARK_ROUTER_LOCAL_MODELS')
+      : parseModelList(settings.localModels.join(','), '"localModels" in the settings file'),
+    localUrl: urlFromEnv !== undefined || settings.localUrl === undefined
+      ? parseLocalUrl(env.SPARK_ROUTER_LOCAL_URL, 'SPARK_ROUTER_LOCAL_URL')
+      : parseLocalUrl(settings.localUrl, '"localUrl" in the settings file'),
     keyFile: nonEmpty(env.SPARK_ROUTER_KEY_FILE)
       ?? paths.join(home, '.config', 'local-model', 'api-key'),
     logDir: nonEmpty(env.SPARK_ROUTER_LOG_DIR) ?? defaultLogDir(env, platform, home),
     routerUrl: `http://127.0.0.1:${port}`,
   };
+}
+
+/**
+ * Reads the settings from the environment variables and the settings file.
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {NodeJS.Platform} [platform]
+ * @returns {ReturnType<typeof readConfig>}
+ * @throws {Error} when a variable or the settings file holds a value that cannot be used
+ */
+export function loadConfig(env = process.env, platform = process.platform) {
+  return readConfig(env, platform, readSettingsFile(settingsFile(env, platform)));
+}
+
+/**
+ * The settings file that `claude-agents --setup` writes: <home>/.config/local-model/settings.json
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {NodeJS.Platform} [platform]
+ * @returns {string}
+ */
+export function settingsFile(env = process.env, platform = process.platform) {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  return paths.join(homeDir(env, platform), '.config', 'local-model', 'settings.json');
+}
+
+/**
+ * Reads the settings file. A file that does not exist gives {}. Other keys in the file are
+ * kept, so a later version can add settings.
+ * @param {string} file
+ * @returns {{localUrl?: string, localModels?: string[]} & Record<string, unknown>}
+ * @throws {Error} when the file cannot be read, is not JSON, or holds a value of the wrong type
+ */
+export function readSettingsFile(file) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return {};
+    }
+    throw new Error(`cannot read the settings file ${file} (${error.code ?? 'unknown error'})`);
+  }
+  let settings;
+  try {
+    settings = JSON.parse(text);
+  } catch {
+    throw new Error(`the settings file ${file} is not valid JSON. Run claude-agents --setup.`);
+  }
+  if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) {
+    throw new Error(`the settings file ${file} must hold a JSON object`);
+  }
+  if (settings.localUrl !== undefined && typeof settings.localUrl !== 'string') {
+    throw new Error(`"localUrl" in the settings file ${file} must be a string`);
+  }
+  if (settings.localModels !== undefined && (!Array.isArray(settings.localModels)
+    || !settings.localModels.every((name) => typeof name === 'string'))) {
+    throw new Error(`"localModels" in the settings file ${file} must be a list of strings`);
+  }
+  return settings;
 }
 
 /**
@@ -85,7 +155,7 @@ export function isLocalModel(localModels, model) {
 }
 
 /**
- * Reads the box's API key: the text of the file, without spaces or line breaks at either end.
+ * Reads the AI server's API key: the text of the file, without spaces or line breaks at either end.
  * @param {string} keyFile
  * @returns {string}
  * @throws {Error} when the file is missing, cannot be read or is empty. The message names
@@ -157,7 +227,7 @@ function parsePort(value) {
 }
 
 // Splits the comma-separated list. Blank names and repeated names (in any case) are left out.
-function parseModelList(value) {
+function parseModelList(value, source) {
   const text = nonEmpty(value);
   if (text === undefined) {
     return [DEFAULT_LOCAL_MODEL];
@@ -167,19 +237,19 @@ function parseModelList(value) {
     .filter((name) => name !== '')
     .filter((name, index, all) => all.findIndex((other) => isLocalModel([other], name)) === index);
   if (names.length === 0) {
-    throw new Error(`SPARK_ROUTER_LOCAL_MODELS must name at least one model (got "${value}")`);
+    throw new Error(`${source} must name at least one model (got "${value}")`);
   }
   return names;
 }
 
-function parseLocalUrl(value) {
+function parseLocalUrl(value, source) {
   const text = nonEmpty(value);
   if (text === undefined) {
     return DEFAULT_LOCAL_URL;
   }
   if (!URL.canParse(text) || !['http:', 'https:'].includes(new URL(text).protocol)) {
     throw new Error(
-      `SPARK_ROUTER_LOCAL_URL must be an http:// or https:// address (got "${value}")`
+      `${source} must be an http:// or https:// address (got "${value}")`
     );
   }
   return text;

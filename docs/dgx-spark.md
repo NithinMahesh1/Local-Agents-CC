@@ -1,18 +1,18 @@
-# Running the box on an NVIDIA DGX Spark
+# Running the AI server on an NVIDIA DGX Spark
 
-This document shows how the author serves a model on an NVIDIA DGX Spark for Local-Agents-CC. Local-Agents-CC itself runs on your own computer; the DGX Spark is the box that runs the model server.
+This document shows how the author serves a model on an NVIDIA DGX Spark for Local-Agents-CC. Local-Agents-CC itself runs on your own computer; the DGX Spark is the AI server that runs the model server.
 
 [Back to the README](../README.md)
 
 ## The hardware
 
-Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as the box. The DGX Spark has an NVIDIA GB10 Grace Blackwell chip and 128 GB of memory. The CPU and the GPU share this memory. The memory speed is about 273 GB/s. This speed sets how fast the box writes tokens (the pieces of text that a model reads and writes).
+Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as the AI server. The DGX Spark has an NVIDIA GB10 Grace Blackwell chip and 128 GB of memory. The CPU and the GPU share this memory. The memory speed is about 273 GB/s. This speed sets how fast the AI server writes tokens (the pieces of text that a model reads and writes).
 
 ## Models we run
 
 We use vLLM to serve models. vLLM is a tool that runs large language models. We run two models: OpenAI gpt-oss-120b and Google Gemma 4 26B-A4B (8-bit). Only one model fits in memory at a time.
 
-The gpt-oss-120b model is a mixture-of-experts (MoE) model. In an MoE model, only some parts of the model run for each token. For this model, 5.1B of its 116.8B parameters are active per token. The weights of the model are in MXFP4. MXFP4 is OpenAI's 4-bit number format. The model size is about 61 GB. The model uses the Apache-2.0 license. The context window is 131,072 tokens. A context window is the amount of text a model considers at one time. The launcher's default `CLAUDE_CODE_MAX_CONTEXT_TOKENS` is 120,000. This leaves room for the answer. The model accepts three reasoning effort levels: high, medium, or low. spark-router changes "max" and "xhigh" effort levels to "high" for box requests.
+The gpt-oss-120b model is a mixture-of-experts (MoE) model. In an MoE model, only some parts of the model run for each token. For this model, 5.1B of its 116.8B parameters are active per token. The weights of the model are in MXFP4. MXFP4 is OpenAI's 4-bit number format. The model size is about 61 GB. The model uses the Apache-2.0 license. The context window is 131,072 tokens. A context window is the amount of text a model considers at one time. The launcher's default `CLAUDE_CODE_MAX_CONTEXT_TOKENS` is 120,000. This leaves room for the answer. The model accepts three reasoning effort levels: high, medium, or low. spark-router changes "max" and "xhigh" effort levels to "high" for AI server requests.
 
 ## How many agents at once
 
@@ -50,7 +50,7 @@ docker run --rm --name vllm --gpus all --ipc=host --network host \
 
 Set these environment variables on your computer:
 
-- `SPARK_ROUTER_LOCAL_URL=http://your-box.local:8000`
+- `SPARK_ROUTER_LOCAL_URL=http://your-ai-server.local:8000`
 - `SPARK_ROUTER_LOCAL_MODELS=local-model`
 
 The key file holds the same key as `VLLM_API_KEY`. See [Configuration](configuration.md) for more details.
@@ -63,8 +63,12 @@ vLLM reads the API key from the `VLLM_API_KEY` environment variable if you do no
 
 Allow the vLLM port (8000) only from your home network in the firewall. Do not open this port to the internet.
 
-If the box's firewall allows only IPv4, a name that resolves to an IPv6 address first can cause connections to hang. In this case, set `SPARK_ROUTER_LOCAL_URL` to the IPv4 address of the box.
+If the AI server's firewall allows only IPv4, a name that resolves to an IPv6 address first can cause connections to hang. In this case, set `SPARK_ROUTER_LOCAL_URL` to the IPv4 address of the AI server.
 
 ## Other hardware
 
 Any computer that serves a model with the Anthropic Messages API, a Bearer key, `/health` endpoint, and tool calling works. The author only tested this on a DGX Spark.
+
+## Speed
+
+You can measure your own AI server with `claude-agents --benchmark` ([Command-line options](command-line.md#measure-the-speed-of-your-ai-server)). The speed depends on the model and on how busy the AI server is. Measured results on a DGX Spark will be added here.

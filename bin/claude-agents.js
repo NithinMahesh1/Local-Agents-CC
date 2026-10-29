@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // claude-agents: starts Claude Code with your Claude plan models AND a local model on your
-// box. The work is in src/launcher.js.
+// AI server. The work is in src/launcher.js.
 
 import { main } from '../src/launcher.js';
 

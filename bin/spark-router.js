@@ -3,12 +3,12 @@
 // when it does not answer, so you need this command only to watch the router or to run it
 // as a service.
 
-import { packageVersion, readConfig, readKeyFile } from '../src/config.js';
+import { loadConfig, packageVersion, readKeyFile } from '../src/config.js';
 import { startRouter } from '../src/router.js';
 
 const HELP = `spark-router - the local router that claude-agents starts for you.
 
-Requests for a local model name go to your box. All other requests go to
+Requests for a local model name go to your AI server. All other requests go to
 api.anthropic.com unchanged. The router listens on 127.0.0.1 only.
 
 Usage:
@@ -18,9 +18,9 @@ Usage:
 
 Settings (environment variables):
   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
-  SPARK_ROUTER_LOCAL_MODELS  model names that go to the box (default local-model)
-  SPARK_ROUTER_LOCAL_URL     your box's address (default http://your-box.local:8000)
-  SPARK_ROUTER_KEY_FILE      file with the box's API key
+  SPARK_ROUTER_LOCAL_MODELS  model names that go to the AI server (default local-model)
+  SPARK_ROUTER_LOCAL_URL     your AI server's address (default http://your-ai-server.local:8000)
+  SPARK_ROUTER_KEY_FILE      file with the AI server's API key
                              (default <home>/.config/local-model/api-key)
 
 Docs: https://github.com/NithinMahesh1/Local-Agents-CC#readme
@@ -36,7 +36,7 @@ if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
   process.exitCode = 2;
 } else {
   try {
-    const config = readConfig();
+    const config = loadConfig();
     const boxKey = readKeyFile(config.keyFile);
     await startRouter({ ...config, boxKey });
   } catch (error) {

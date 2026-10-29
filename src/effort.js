@@ -1,4 +1,4 @@
-// Caps the reasoning effort in requests that go to the box.
+// Caps the reasoning effort in requests that go to the AI server.
 // Some local models accept only "high", "medium" or "low" as the reasoning effort, and answer
 // "max" or "xhigh" with HTTP 400. Requests to Anthropic never pass through here, so Claude
 // models keep "max".

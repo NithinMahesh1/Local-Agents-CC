@@ -1,5 +1,5 @@
 // The parts of claude-agents that only compute values: the help text, the split between
-// claude-agents's own flags and claude's arguments, and the environment for one session.
+// the launcher's own flags and claude's arguments, and the environment for one session.
 
 /**
  * The text that `claude-agents --help` prints.
@@ -7,22 +7,31 @@
  * @returns {string}
  */
 export function helpText({ routerUrl, logDir, localModel }) {
-  return `claude-agents - Claude Code with your Claude plan models AND a local model on your box.
+  return `claude-agents - Claude Code with your Claude plan models AND a local model on your AI
+server (the computer that runs your local model).
 
   Claude models (opus, sonnet, ...) -> spark-router -> api.anthropic.com  (your claude.ai login)
-  Spark Agents (${localModel}) -> spark-router -> your local box  (free, home network only)
+  Spark Agents (${localModel}) -> spark-router -> your AI server  (free, home network only)
 
 Usage:
   claude-agents [claude-agents flags] [claude options and arguments]
 
+First time: run claude-agents --setup. It asks for your AI server's address, its API key and
+the model name, and checks that the AI server answers.
+
 claude-agents flags (in any position; they do not go to claude):
-  --all-local   Run EVERYTHING on the box: the main session, all agents and Claude Code's
-                background jobs. No request uses your Claude plan - for when the plan
+  --setup       Ask for the AI server's address, API key and model name, save them, check
+                the AI server, then exit. Use it alone. Starts no router and no claude.
+  --benchmark   Measure the speed of your AI server: 3 runs of one prompt, then exit. Prints
+                the time to the first token and the output speed in tokens per second.
+                Use it alone. Starts no router and no claude.
+  --all-local   Run EVERYTHING on the AI server: the main session, all agents and Claude
+                Code's background jobs. No request uses your Claude plan - for when the plan
                 limit is reached. Web search is off. Everything the session reads goes to
-                the box: no client-identifying code, credentials, connection strings or
-                customer data. Stops with an error if the box does not answer. When the
-                model ends a reply with a plan but no tool call, a Stop hook sends it back
-                once and records the event.
+                the AI server: no client-identifying code, credentials, connection strings
+                or customer data. Stops with an error if the AI server does not answer. When
+                the model ends a reply with a plan but no tool call, a Stop hook sends it
+                back once and records the event.
   --missed-tool-calls
                 Show how often that Stop hook sent the model back, by model and project,
                 then exit. Starts no router and no claude.
@@ -31,10 +40,11 @@ claude-agents flags (in any position; they do not go to claude):
   --help, -h    Show this help (only when used alone). Claude Code's own help: claude --help
 
 All other arguments go to claude unchanged. Examples:
-  claude-agents                           normal session: Claude models; spark agents on the box
-  claude-agents --all-local               the whole session and its agents on the box
+  claude-agents                           normal session: Claude models; spark agents on
+                                          the AI server
+  claude-agents --all-local               the whole session and its agents on the AI server
   claude-agents -p "summarize README.md"  one prompt, print the answer, exit
-  claude-agents --all-local -c            continue the last session, all on the box
+  claude-agents --all-local -c            continue the last session, all on the AI server
 
 Local model in a normal session:
   agents:        ask Claude to give a task to spark-agent (needs the agent file:
@@ -50,9 +60,10 @@ All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/com
 }
 
 /**
- * Splits claude-agents's own flags from the arguments that go to claude.
+ * Splits the launcher's own flags from the arguments that go to claude.
  * @param {string[]} argv - the command-line arguments after the command name
- * @returns {{ allLocal: boolean, showHelp: boolean, missedToolCalls: boolean,
+ * @returns {{ allLocal: boolean, showHelp: boolean, setup: boolean, benchmark: boolean,
+ *   missedToolCalls: boolean,
  *   missedEventsFile: string | null, claudeArgs: string[] }} missedEventsFile is the value of
  *   --missed-events-file (as the next argument, or after "="), '' when the flag has no value,
  *   and null when the flag is not used
@@ -60,6 +71,8 @@ All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/com
 export function parseArgs(argv) {
   const valueFlag = '--missed-events-file';
   let allLocal = false;
+  let setup = false;
+  let benchmark = false;
   let missedToolCalls = false;
   let missedEventsFile = null;
   const claudeArgs = [];
@@ -67,6 +80,10 @@ export function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--all-local') {
       allLocal = true;
+    } else if (arg === '--setup') {
+      setup = true;
+    } else if (arg === '--benchmark') {
+      benchmark = true;
     } else if (arg === '--missed-tool-calls') {
       missedToolCalls = true;
     } else if (arg === valueFlag) {
@@ -81,7 +98,7 @@ export function parseArgs(argv) {
   const showHelp =
     claudeArgs.length > 0 && claudeArgs.every((arg) => arg === '--help' || arg === '-h');
 
-  return { allLocal, showHelp, missedToolCalls, missedEventsFile, claudeArgs };
+  return { allLocal, showHelp, setup, benchmark, missedToolCalls, missedEventsFile, claudeArgs };
 }
 
 /**
@@ -136,7 +153,7 @@ export function buildSession({
   env = withVar(
     env,
     'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION',
-    'Free local model on your box - exact, mechanical coding tasks',
+    'Free local model on your AI server - exact, mechanical coding tasks',
   );
 
   let maxContextTokens = '120000';
@@ -171,9 +188,9 @@ export function buildSession({
       ...claudeArgs,
     ];
     notes = [
-      'ALL-LOCAL: this session, all its agents and its background jobs run on your local box. '
-        + 'Web search is off.',
-      'ALL-LOCAL: everything the session reads goes to the box - no client-identifying code, '
+      'ALL-LOCAL: this session, all its agents and its background jobs run on your local '
+        + 'AI server. Web search is off.',
+      'ALL-LOCAL: everything the session reads goes to the AI server - no client-identifying code, '
         + 'credentials, connection strings or customer data.',
     ];
   } else {

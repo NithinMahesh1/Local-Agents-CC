@@ -1,6 +1,6 @@
 ---
 name: spark-agent
-description: "Coding agent that runs on your local model through claude-agents, so it does not use your Claude plan. Use it for exact coding tasks with a clear specification, and for first drafts that a Claude model then reviews. Start one agent per independent task. One box serves only a few agents at once; more agents wait in a queue. It reaches the box only in a claude-agents session. Review its changes."
+description: "Coding agent that runs on your local model through claude-agents, so it does not use your Claude plan. Use it for exact coding tasks with a clear specification, and for first drafts that a Claude model then reviews. Start one agent per independent task. One AI server serves only a few agents at once; more agents wait in a queue. It reaches the AI server only in a claude-agents session. Review its changes."
 model: local-model
 omitClaudeMd: true
 tools: Read, Edit, Write, Bash, Grep, Glob

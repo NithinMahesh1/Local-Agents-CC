@@ -5,7 +5,7 @@ A model can be trained with a hidden trigger, often called a backdoor: when it s
 ## The risk
 
 - For example, a model with a backdoor can read a `.env` file and send the secrets to a server.
-- The tool calls run on your computer, not on the box. A firewall around the box does not stop what the model makes Claude Code do on your computer.
+- The tool calls run on your computer, not on the AI server. A firewall around the AI server does not stop what the model makes Claude Code do on your computer.
 - In `--all-local` sessions, the main session and every agent run on the local model.
 
 ## What Claude Code already asks before
@@ -36,7 +36,7 @@ claude-agents --all-local --settings ~/.config/local-agents-cc/all-local-guarded
 
 ### What each part does
 
-- `permissions.deny`: Claude's file tools (Read, Edit and Write) cannot open `.env` files in the project, or credential files in your home folder: `~/.ssh`, `~/.aws`, cloud and Git tokens, the token and password files of npm, PyPI and PostgreSQL, .NET user secrets, and the box key folder `~/.config/local-model`. The `WebFetch` rule removes the WebFetch tool, because the sandbox does not limit it.
+- `permissions.deny`: Claude's file tools (Read, Edit and Write) cannot open `.env` files in the project, or credential files in your home folder: `~/.ssh`, `~/.aws`, cloud and Git tokens, the token and password files of npm, PyPI and PostgreSQL, .NET user secrets, and the AI server key folder `~/.config/local-model`. The `WebFetch` rule removes the WebFetch tool, because the sandbox does not limit it.
 - `sandbox.enabled`: shell commands run in Claude Code's sandbox, a limit that the operating system enforces. Their network connections are checked against the hosts in `allowedDomains`.
 - `sandbox.network.strictAllowlist`: a connection to any other host fails at once. Without this setting, Claude Code asks you.
 - `sandbox.credentials`: shell commands cannot read the listed credential files and folders. The listed token variables, for example `GITHUB_TOKEN`, are removed from their environment.
@@ -51,7 +51,7 @@ claude-agents --all-local --settings ~/.config/local-agents-cc/all-local-guarded
 - The `.env.*` rules also block files such as `.env.example`. Remove those rules if a task needs such files.
 - If your `~/.npmrc` holds a token, add it to `sandbox.credentials.files`, then check that npm still works.
 - Without WebFetch, Claude cannot read web pages. To allow some sites, remove `WebFetch` from `deny` and add `WebFetch(domain:<host>)` rules to `allow`. Claude Code then asks before it fetches from any other site.
-- If your box key file is not in `~/.config/local-model` (you set `SPARK_ROUTER_KEY_FILE`), add its path to `permissions.deny` and to `sandbox.credentials.files`.
+- If your AI server key file is not in `~/.config/local-model` (you set `SPARK_ROUTER_KEY_FILE`), add its path to `permissions.deny` and to `sandbox.credentials.files`.
 - `sandbox.filesystem.denyRead` covers `.env` files under your home folder only. If your projects are in another folder, for example under `/mnt/c` in WSL2, add a pattern for that folder.
 
 ## Native Windows

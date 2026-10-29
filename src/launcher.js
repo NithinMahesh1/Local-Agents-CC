@@ -9,9 +9,13 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { HEALTH_PATH, isLocalModel, missedEventsFile, readConfig } from './config.js';
+import { runBenchmark } from './benchmark.js';
+import {
+  HEALTH_PATH, isLocalModel, loadConfig, missedEventsFile, readKeyFile,
+} from './config.js';
 import { formatMissedSummary, parseMissedEvents, summarizeMissedEvents } from './missed-events.js';
 import { buildSession, helpText, parseArgs } from './session.js';
+import { runSetup } from './setup.js';
 import { claudeSettingsPath, readSavedModel, restoreSavedModel } from './settings-guard.js';
 import { resolveCommand, spawnCommand } from './spawn-command.js';
 
@@ -130,19 +134,50 @@ export async function ensureRouter({
  * Runs claude-agents and returns the exit code (claude's exit code after a session).
  * @param {string[]} argv - the arguments after the command name
  * @param {{ env?: NodeJS.ProcessEnv, platform?: NodeJS.Platform,
- *   stdout?: { write: (text: string) => unknown },
+ *   stdin?: NodeJS.ReadableStream,
+ *   stdout?: NodeJS.WritableStream,
  *   stderr?: { write: (text: string) => unknown } }} [options]
  * @returns {Promise<number>}
  */
 export async function main(argv, {
   env = process.env,
   platform = process.platform,
+  stdin = process.stdin,
   stdout = process.stdout,
   stderr = process.stderr,
 } = {}) {
   const note = (message) => stderr.write(`claude-agents: ${message}\n`);
-  const { allLocal, showHelp, missedToolCalls, missedEventsFile: eventsFileArg, claudeArgs } =
-    parseArgs(argv);
+  const {
+    allLocal, showHelp, setup, benchmark, missedToolCalls, missedEventsFile: eventsFileArg,
+    claudeArgs,
+  } = parseArgs(argv);
+
+  if (setup) {
+    if (argv.length !== 1) {
+      note('--setup works only alone: claude-agents --setup');
+      return 1;
+    }
+    try {
+      return await runSetup({ env, platform, input: stdin, output: stdout });
+    } catch (error) {
+      note(error.message);
+      return 1;
+    }
+  }
+  if (benchmark) {
+    if (argv.length !== 1) {
+      note('--benchmark works only alone: claude-agents --benchmark');
+      return 1;
+    }
+    try {
+      const { localUrl, localModels, keyFile } = loadConfig(env, platform);
+      const key = readKeyFile(keyFile);
+      return await runBenchmark({ localUrl, model: localModels[0], key, output: stdout });
+    } catch (error) {
+      note(error.message);
+      return 1;
+    }
+  }
 
   if (eventsFileArg !== null && !missedToolCalls) {
     note('--missed-events-file works only together with --missed-tool-calls.');
@@ -158,7 +193,7 @@ export async function main(argv, {
 
   let config;
   try {
-    config = readConfig(env, platform);
+    config = loadConfig(env, platform);
   } catch (error) {
     note(error.message);
     return 1;
@@ -180,7 +215,7 @@ export async function main(argv, {
   if (health.local_model_server !== 'ok') {
     if (allLocal) {
       note('the local model server is not answering, and --all-local needs it. '
-        + 'Try again when the box is up.');
+        + 'Try again when the AI server is up.');
       return 1;
     }
     note('warning - the local model server is not answering. Claude models still work.');

@@ -37,8 +37,8 @@ export function closeServer(server) {
 }
 
 /**
- * Starts a fake upstream server (a box or Anthropic). It records every request, with its full
- * body, before it calls respond.
+ * Starts a fake upstream server (an AI server or Anthropic). It records every request, with its
+ * full body, before it calls respond.
  * @param {Respond} [respond]
  * @returns {Promise<{ url: string, port: number, requests: RecordedRequest[],
  *   close: () => Promise<void> }>}
@@ -72,8 +72,8 @@ export async function freePort() {
 }
 
 /**
- * Runs fn with a router between two fake servers (box and Anthropic), then closes all three.
- * The router routes LOCAL_MODEL to the box with BOX_KEY. Its log lines are collected in
+ * Runs fn with a router between two fake servers (AI server and Anthropic), then closes all three.
+ * The router routes LOCAL_MODEL to the AI server with BOX_KEY. Its log lines are collected in
  * logLines as "info: <message>" or "warn: <message>".
  * @param {{ box?: Respond, anthropic?: Respond, router?: object }} options - router: options
  *   for startRouter that replace the defaults (for example localUrl or maxBodyBytes)

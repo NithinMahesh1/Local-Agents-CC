@@ -15,11 +15,11 @@ claude-agents is the launcher. It starts the router and Claude Code.
 sequenceDiagram
     participant CC as Claude Code
     participant R as spark-router (127.0.0.1)
-    participant B as Your box
+    participant B as Your AI server
     participant A as api.anthropic.com
     CC->>R: POST /v1/messages (model, your login)
     alt model is a local model name
-        R->>B: same request, Claude login removed, box key added, effort capped
+        R->>B: same request, Claude login removed, AI server key added, effort capped
         B-->>R: streamed answer
     else any other model
         R->>A: same request, unchanged
@@ -50,7 +50,7 @@ The router checks the Host header.
 The Host header must be `127.0.0.1` or `localhost`.
 This check prevents DNS-rebinding attacks. A DNS-rebinding attack is when a web page uses a different name to send requests to the router.
 When sending a request to the local model server, the router removes the `Authorization`, `x-api-key`, and `Cookie` headers.
-The router then adds `Authorization: Bearer <box key>`.
+The router then adds `Authorization: Bearer <AI server key>`.
 The router does not copy headers that describe one network hop. These headers are `Connection`, `Keep-Alive`, `Proxy-Connection`, `Transfer-Encoding`, `TE`, `Trailer`, `Upgrade`, `Host`, `Content-Length`, and `Expect`.
 Anthropic requests keep every other header, including your `claude.ai` login.
 
@@ -67,8 +67,8 @@ Anthropic requests never change, so Claude models keep the `max` value.
 ## Streaming and errors
 
 The router sends each piece of the answer to Claude Code as it arrives.
-The connection to the box or Anthropic must open within 15 seconds.
-The router returns HTTP 502 if the box or Anthropic cannot be reached.
+The connection to the AI server or Anthropic must open within 15 seconds.
+The router returns HTTP 502 if the AI server or Anthropic cannot be reached.
 The router returns an Anthropic-style error body when it returns HTTP 502.
 The router returns HTTP 413 if a request body is larger than 256 MiB.
 The router returns HTTP 400 if the request URL cannot be parsed.
@@ -76,7 +76,7 @@ The router returns HTTP 400 if the request URL cannot be parsed.
 ## Health check
 
 A GET request to `http://127.0.0.1:8799/__spark-router/health` checks the system status.
-The router checks the local model server with a GET request to `<box>/health`.
+The router checks the local model server with a GET request to `<AI server>/health`.
 The router uses a 3-second limit for this check.
 The router does not use a key for the health check.
 This health check path is never forwarded.
@@ -84,10 +84,10 @@ This health check path is never forwarded.
 ## Logs
 
 The router writes one line per request to its log files.
-A log line includes the time, method, path (without query string), model, destination (BOX or anthropic), status, and time in milliseconds.
+A log line includes the time, method, path (without query string), model, destination (LOCAL or anthropic), status, and time in milliseconds.
 If the router changes the reasoning effort, it adds `effort=high(clamped)` to the log.
 The router never logs headers, query strings, message text, or keys.
-An example log line is: `14:02:11 info: POST /v1/messages model=local-model -> BOX 200 5321 ms`.
+An example log line is: `14:02:11 info: POST /v1/messages model=local-model -> LOCAL 200 5321 ms`.
 
 ## The launcher
 
@@ -118,7 +118,7 @@ If the guard cannot change the file, it prints a WARNING with the file path.
 
 With `--all-local`, no request uses your Claude plan. The launcher also sets:
 
-- `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL` and `ANTHROPIC_DEFAULT_FABLE_MODEL` to the local model, so every model name goes to the box.
+- `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL` and `ANTHROPIC_DEFAULT_FABLE_MODEL` to the local model, so every model name goes to the AI server.
 - `CLAUDE_CODE_SUBAGENT_MODEL` to the local model, and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, so every agent uses it, also an agent whose file names another model.
 - `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`, so agents cannot start more agents.
 - `BASH_DEFAULT_TIMEOUT_MS=600000`, a 10-minute limit for shell commands.
@@ -133,4 +133,4 @@ The router only routes JSON requests.
 The Anthropic address is fixed in the code.
 A request path cannot change the destination host. For example, a request for `/a/..//other.host/v1/messages` still goes to Anthropic.
 The router never logs keys.
-The router is not a sandbox. Any program that runs as your user can use the router and the box. Any such program can also read the key file.
+The router is not a sandbox. Any program that runs as your user can use the router and the AI server. Any such program can also read the key file.

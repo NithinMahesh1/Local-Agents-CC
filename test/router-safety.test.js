@@ -131,7 +131,7 @@ describe('router safety', { timeout: 10000 }, () => {
         body: { model: 'local-model' },
       });
       const all = logLines.join('\n');
-      assert.match(all, /model=local-model -> BOX 200/);
+      assert.match(all, /model=local-model -> LOCAL 200/);
       assert.strictEqual(all.includes('query-secret'), false);
       assert.strictEqual(all.includes('login-secret'), false);
       assert.strictEqual(all.includes('key-secret'), false);

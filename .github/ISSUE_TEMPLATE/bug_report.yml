@@ -5,7 +5,7 @@ labels:
 body:
   - type: markdown
     attributes:
-      value: Thanks for the report. Do not paste API keys, your box's address or private code. For a security problem, use the private report in the Security tab (see SECURITY.md), not an issue.
+      value: Thanks for the report. Do not paste API keys, your AI server's address or private code. For a security problem, use the private report in the Security tab (see SECURITY.md), not an issue.
   - type: textarea
     id: what-happened
     attributes:
@@ -61,5 +61,5 @@ body:
     id: logs
     attributes:
       label: Router log lines
-      description: Lines from router.log or router-errors.log (see docs/troubleshooting.md). They never hold keys or message text, but remove your box's address.
+      description: Lines from router.log or router-errors.log (see docs/troubleshooting.md). They never hold keys or message text, but remove your AI server's address.
       render: text

@@ -14,12 +14,12 @@ This document provides solutions to common problems when using Local-Agents-CC.
 
 ## "warning - the local model server is not answering"
 
-- Cause: The router cannot reach `GET <box>/health`.
-- Fix: Check that the box is on.
+- Cause: The router cannot reach `GET <AI server>/health`.
+- Fix: Check that the AI server is on.
 - Fix: Check that the model server finished starting. A large model can take several minutes.
 - Fix: Check that `SPARK_ROUTER_LOCAL_URL` is correct.
-- Fix: Check that the box's firewall allows your computer.
-- Fix: Try the box's IPv4 address instead of its name.
+- Fix: Check that the AI server's firewall allows your computer.
+- Fix: Try the AI server's IPv4 address instead of its name.
 
 ## "the local model server is not answering, and --all-local needs it"
 
@@ -27,12 +27,12 @@ This document provides solutions to common problems when using Local-Agents-CC.
 - Fix: Perform the same checks as in the previous problem.
 - Fix: Start without `--all-local`.
 
-## HTTP 401 from the box
+## HTTP 401 from the AI server
 
 - Cause: The key in the key file does not match the server's key.
 - Fix: Make sure both keys are the same.
 
-## HTTP 404, or "model does not exist", from the box
+## HTTP 404, or "model does not exist", from the AI server
 
 - Cause: `SPARK_ROUTER_LOCAL_MODELS` does not hold a name that the server serves.
 - Fix: Ensure `SPARK_ROUTER_LOCAL_MODELS` matches the name in the vLLM `--served-model-name` setting.
@@ -44,7 +44,7 @@ This document provides solutions to common problems when using Local-Agents-CC.
 
 ## HTTP 400 that names the reasoning effort
 
-- Cause: The model does not accept the effort value. The router already changes "max" and "xhigh" to "high" for box requests, so the value is another one.
+- Cause: The model does not accept the effort value. The router already changes "max" and "xhigh" to "high" for AI server requests, so the value is another one.
 - Fix: Lower the effort level in Claude Code.
 
 ## "Input length ... exceeds the model's maximum context length"
@@ -96,7 +96,7 @@ kill $(lsof -t -iTCP:8799 -sTCP:LISTEN)
 
 ## Answers are slow with many agents
 
-- Cause: One box serves only a few agents at once. On a DGX Spark, it serves about 8 agents, or about 6 with gpt-oss-120b.
+- Cause: One AI server serves only a few agents at once. On a DGX Spark, it serves about 8 agents, or about 6 with gpt-oss-120b.
 - Fix: More agents cause a queue. Start fewer agents.
 
 ## Where are the logs?
@@ -105,6 +105,6 @@ kill $(lsof -t -iTCP:8799 -sTCP:LISTEN)
 - macOS: `~/Library/Logs/spark-router`
 - Linux: `~/.local/state/spark-router` (or `$XDG_STATE_HOME/spark-router`)
 - The files are `router.log` and `router-errors.log`. `SPARK_ROUTER_LOG_DIR` changes the folder.
-- The logs never hold keys, headers or message text, so you can share lines in an issue. Remove your box's address first.
+- The logs never hold keys, headers or message text, so you can share lines in an issue. Remove your AI server's address first.
 
 Still stuck? Open an issue: https://github.com/NithinMahesh1/Local-Agents-CC/issues

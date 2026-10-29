@@ -73,7 +73,7 @@ Every change in behavior needs a test.
 - Temporary files go in a folder under `os.tmpdir()` and are removed after the test.
 - Tests must never use port 8799.
 - Tests must never use the real `~/.claude` folder.
-- CI (Continuous Integration) runs tests on Windows, macOS, and Linux using Node.js 22 and 24.
+- Run `npm test` on your own computer before you open a pull request. The project has no CI (continuous integration) test workflow; the maintainer tests releases on Windows and Linux.
 
 ## Safety rules for the router
 

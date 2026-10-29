@@ -10,7 +10,10 @@ import {
   packageVersion,
   missedEventsFile,
   ANTHROPIC_URL,
-  HEALTH_PATH
+  HEALTH_PATH,
+  settingsFile,
+  readSettingsFile,
+  loadConfig
 } from '../src/config.js';
 
 test('1. readConfig linux default', () => {
@@ -20,7 +23,7 @@ test('1. readConfig linux default', () => {
   assert.deepStrictEqual(result, {
     port: 8799,
     localModels: ['local-model'],
-    localUrl: 'http://your-box.local:8000',
+    localUrl: 'http://your-ai-server.local:8000',
     keyFile: '/home/u/.config/local-model/api-key',
     logDir: '/home/u/.local/state/spark-router',
     routerUrl: 'http://127.0.0.1:8799'
@@ -87,17 +90,7 @@ test('7. SPARK_ROUTER_PORT error handling', () => {
 test('8. SPARK_ROUTER_LOCAL_MODELS parsing', () => {
   const env = { SPARK_ROUTER_LOCAL_MODELS: ' A, b ,a,, ' };
   const result = readConfig(env, 'linux');
-  // Note: 'a' is a duplicate of 'A' (case-insensitive) so it should be filtered out if
-  // isLocalModel is used.
-  // Wait, isLocalModel is used in the filter.
-  // 'A' -> localModels includes 'A'
-  // 'b' -> localModels includes 'b'
-  // 'a' -> isLocalModel(['A', 'b'], 'a') is true.
-  // The filter: all.findIndex((other) => isLocalModel([other], name)) === index
-  // For 'a': all.findIndex((other) => isLocalModel([other], 'a'))
-  //   other='A': isLocalModel(['A'], 'a') is true. findIndex is 0.
-  //   index is 1. 0 !== 1. So 'a' is filtered out.
-  // Result should be ['A', 'b'].
+  // 'a' repeats 'A' (names are compared without regard to case), so it is left out.
   assert.deepStrictEqual(result.localModels, ['A', 'b']);
 
   assert.throws(() => {
@@ -109,8 +102,8 @@ test('8. SPARK_ROUTER_LOCAL_MODELS parsing', () => {
 
 test('9. SPARK_ROUTER_LOCAL_URL parsing', () => {
   assert.strictEqual(
-    readConfig({ SPARK_ROUTER_LOCAL_URL: 'https://box.example:8443' }, 'linux').localUrl,
-    'https://box.example:8443',
+    readConfig({ SPARK_ROUTER_LOCAL_URL: 'https://ai-server.example:8443' }, 'linux').localUrl,
+    'https://ai-server.example:8443',
   );
 
   assert.throws(() => {
@@ -214,4 +207,82 @@ test('missedEventsFile: a bad router setting does not matter', () => {
   assert.doesNotThrow(() => {
     missedEventsFile({ HOME: '/home/u', SPARK_ROUTER_PORT: 'abc' }, 'linux');
   });
+});
+
+test('24. settingsFile', () => {
+  assert.strictEqual(settingsFile({ HOME: '/home/u' }, 'linux'),
+    '/home/u/.config/local-model/settings.json');
+  assert.strictEqual(settingsFile({ USERPROFILE: 'C:\\Users\\u' }, 'win32'),
+    'C:\\Users\\u\\.config\\local-model\\settings.json');
+});
+
+test('25. readConfig with settings', () => {
+  const settings = { localUrl: 'http://127.0.0.1:5', localModels: ['m1', 'm2'] };
+  const result = readConfig({ HOME: '/home/u' }, 'linux', settings);
+  assert.strictEqual(result.localUrl, 'http://127.0.0.1:5');
+  assert.deepStrictEqual(result.localModels, ['m1', 'm2']);
+});
+
+test('26. environment variables win over settings', () => {
+  const settings = { localUrl: 'http://127.0.0.1:5', localModels: ['m1', 'm2'] };
+  const env = {
+    SPARK_ROUTER_LOCAL_URL: 'http://127.0.0.1:6',
+    SPARK_ROUTER_LOCAL_MODELS: 'e1'
+  };
+  const result = readConfig(env, 'linux', settings);
+  assert.strictEqual(result.localUrl, 'http://127.0.0.1:6');
+  assert.deepStrictEqual(result.localModels, ['e1']);
+});
+
+test('27. readConfig with invalid settings.localUrl', () => {
+  const settings = { localUrl: 'ftp://x' };
+  assert.throws(() => {
+    readConfig({}, 'linux', settings);
+  }, {
+    message: new RegExp(`"localUrl" in the settings file`)
+  });
+});
+
+test('28. readSettingsFile: non-existent file', () => {
+  assert.deepStrictEqual(readSettingsFile('non-existent.json'), {});
+});
+
+test('29. readSettingsFile: invalid JSON and schema', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lacc-settings-'));
+  try {
+    const f1 = path.join(tmpDir, 'not-json.json');
+    fs.writeFileSync(f1, 'not json');
+    assert.throws(() => readSettingsFile(f1), /not valid JSON/);
+
+    const f2 = path.join(tmpDir, 'array.json');
+    fs.writeFileSync(f2, '[1]');
+    assert.throws(() => readSettingsFile(f2), /must hold a JSON object/);
+
+    const f3 = path.join(tmpDir, 'bad-url.json');
+    fs.writeFileSync(f3, '{"localUrl": 5}');
+    assert.throws(() => readSettingsFile(f3), /"localUrl" in the settings file/);
+
+    const f4 = path.join(tmpDir, 'bad-models.json');
+    fs.writeFileSync(f4, '{"localModels": "m"}');
+    assert.throws(() => readSettingsFile(f4), /"localModels" in the settings file/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('30. loadConfig uses settings.json', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lacc-load-'));
+  try {
+    const configDir = path.join(tmpDir, '.config', 'local-model');
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(configDir, 'settings.json'),
+      JSON.stringify({ localUrl: 'http://127.0.0.1:5' }),
+    );
+
+    const result = loadConfig({ HOME: tmpDir, USERPROFILE: tmpDir }, 'linux');
+    assert.strictEqual(result.localUrl, 'http://127.0.0.1:5');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

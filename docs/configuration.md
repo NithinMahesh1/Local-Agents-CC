@@ -9,8 +9,8 @@ This document describes how to configure Local-Agents-CC.
 | Variable | Default | What it does |
 | :--- | :--- | :--- |
 | `SPARK_ROUTER_PORT` | `8799` | The port on 127.0.0.1. Use a whole number from 1 to 65535. |
-| `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated names of local models, compared without regard to case. The first name is the one that `claude-agents` offers in `/model` and uses for `--all-local`. The other names also go to the box, for example an older name in a saved session. |
-| `SPARK_ROUTER_LOCAL_URL` | `http://your-box.local:8000` | The URL of the local model server. It must start with `http://` or `https://`. |
+| `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated names of local models, compared without regard to case. The first name is the one that `claude-agents` offers in `/model` and uses for `--all-local`. The other names also go to the AI server, for example an older name in a saved session. |
+| `SPARK_ROUTER_LOCAL_URL` | `http://your-ai-server.local:8000` | The URL of the local model server. It must start with `http://` or `https://`. |
 | `SPARK_ROUTER_KEY_FILE` | `~/.config/local-model/api-key` | The path to the file that contains the local model API key. |
 | `SPARK_ROUTER_LOG_DIR` | *Platform specific* | The folder where the router writes logs. |
 | `SPARK_MISSED_EVENTS_FILE` | `missed-tool-events.jsonl` in the log folder | File where the Stop hook of `--all-local` sessions records each missed tool call. |
@@ -27,7 +27,28 @@ On Windows, use the following command in PowerShell, then open a new terminal:
 [Environment]::SetEnvironmentVariable('NAME', 'value', 'User')
 ```
 
+## The settings file
+
+The command `claude-agents --setup` writes the address and the model name to a settings file.
+A settings file is a file that stores configuration.
+
+The file path depends on your system:
+- Windows: `%USERPROFILE%\.config\local-model\settings.json`
+- macOS/Linux: `~/.config/local-model/settings.json`
+
+The file uses JSON. JSON is a text format for storing data. The file looks like this:
+```json
+{ "localUrl": "...", "localModels": ["..."] }
+```
+
+Environment variables win over the settings file.
+An environment variable is a setting in your operating system.
+
+If you change the settings file, you must restart the router.
+
 ## The key file
+
+The easiest way to create the key file is `claude-agents --setup`. To create it by hand:
 
 The key file must contain only the key on one line.
 The router does not start if the file is missing or empty.

@@ -18,7 +18,7 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
     });
   });
 
-  it('Health with box error', async () => {
+  it('Health with AI server error', async () => {
     await withRouter({
       box: (req, res) => {
         res.writeHead(503);
@@ -34,7 +34,7 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
     });
   });
 
-  it('Health with no box', async () => {
+  it('Health with no AI server', async () => {
     const deadPort = await freePort();
     await withRouter(
       { router: { localUrl: `http://127.0.0.1:${deadPort}` } },
@@ -49,7 +49,7 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
     });
   });
 
-  it('Box not reachable', async () => {
+  it('AI server not reachable', async () => {
     const deadPort = await freePort();
     await withRouter(
       { router: { localUrl: `http://127.0.0.1:${deadPort}` } },

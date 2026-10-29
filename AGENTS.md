@@ -32,7 +32,9 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 
 - `bin/claude-agents.js`: The launcher command.
 - `bin/spark-router.js`: The router command.
-- `src/config.js`: Settings from environment variables.
+- `src/config.js`: Settings from environment variables and the settings file.
+- `src/setup.js`: `claude-agents --setup`: asks for the AI server's address, API key and model name, saves them and checks the AI server.
+- `src/benchmark.js`: `claude-agents --benchmark`: measures the AI server's time to the first token and tokens per second.
 - `src/router.js`: The router.
 - `src/effort.js`: The reasoning effort cap.
 - `src/session.js`: Launcher settings, arguments, and help text.

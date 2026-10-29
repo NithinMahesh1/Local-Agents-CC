@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { withRouter, send, BOX_KEY, LOCAL_MODEL } from './router-helpers.js';
 
 describe('router routing', { timeout: 10000 }, () => {
-  it('routes box requests with correct headers and path', async () => {
+  it('routes AI server requests with correct headers and path', async () => {
     await withRouter({}, async ({ url, box, anthropic }) => {
       const res = await send(url, {
         path: '/v1/messages?beta=true',
@@ -71,7 +71,7 @@ describe('router routing', { timeout: 10000 }, () => {
     });
   });
 
-  it('routes +json media types to the box', async () => {
+  it('routes +json media types to the AI server', async () => {
     await withRouter({}, async ({ url, box, anthropic }) => {
       await send(url, {
         headers: { 'content-type': 'application/vnd.test+json; charset=utf-8' },
@@ -91,7 +91,7 @@ describe('router routing', { timeout: 10000 }, () => {
     });
   });
 
-  it('clamps effort for box requests and logs it', async () => {
+  it('clamps effort for AI server requests and logs it', async () => {
     await withRouter({}, async ({ url, box, logLines }) => {
       const body = '{"model":"local-model","output_config":{"effort":"max"},"messages":[]}';
       await send(url, {
@@ -116,7 +116,7 @@ describe('router routing', { timeout: 10000 }, () => {
     });
   });
 
-  it('does not change bytes for box requests', async () => {
+  it('does not change bytes for AI server requests', async () => {
     await withRouter({}, async ({ url, box }) => {
       const body = '{"model":"local-model",  "max_tokens":12345678901234567890,"messages":[]}';
       await send(url, {
@@ -127,7 +127,7 @@ describe('router routing', { timeout: 10000 }, () => {
     });
   });
 
-  it('passes through box status and body', async () => {
+  it('passes through AI server status and body', async () => {
     const boxRespond = (req, res) => {
       res.writeHead(429, { 'content-type': 'application/json' });
       res.end('{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}');
@@ -144,13 +144,13 @@ describe('router routing', { timeout: 10000 }, () => {
     });
   });
 
-  it('logs correct info message after box request', async () => {
+  it('logs correct info message after AI server request', async () => {
     await withRouter({}, async ({ url, logLines }) => {
       await send(url, {
         body: { model: LOCAL_MODEL, messages: [] },
       });
       const logMatch = logLines.some((line) =>
-        /^info: POST \/v1\/messages model=local-model -> BOX 200 \d+ ms$/.test(line)
+        /^info: POST \/v1\/messages model=local-model -> LOCAL 200 \d+ ms$/.test(line)
       );
       assert.strictEqual(logMatch, true);
     });

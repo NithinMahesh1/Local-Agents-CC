@@ -683,3 +683,16 @@ describe('main', { timeout: 60000 }, () => {
     }
   });
 });
+
+describe('main: --setup and --benchmark must be used alone', () => {
+  for (const argv of [['--setup', '-c'], ['--benchmark', '--all-local']]) {
+    it(`${argv.join(' ')} -> exit 1 with a message`, async () => {
+      const stderr = makeSink();
+      const stdout = makeSink();
+      const code = await main(argv, { env: {}, stdout, stderr });
+      assert.strictEqual(code, 1);
+      assert.match(stderr.text, /works only alone/);
+      assert.strictEqual(stdout.text, '');
+    });
+  }
+});
