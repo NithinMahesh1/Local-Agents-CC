@@ -148,6 +148,8 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 | `SPARK_ROUTER_LOCAL_URL` | `http://your-box.local:8000` | Your box's address. |
 | `SPARK_ROUTER_KEY_FILE` | `~/.config/local-model/api-key` | File that holds the box's API key. |
 | `SPARK_ROUTER_LOG_DIR` | per system (see the docs) | Folder for the router's log files. |
+| `SPARK_MISSED_EVENTS_FILE` | `missed-tool-events.jsonl` in the log folder | File where the Stop hook of `--all-local` sessions records each missed tool call. |
+| `LOCAL_MODEL_CONTINUE` | not set | `off` turns off the Stop hook of `--all-local` sessions. |
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `120000` (set by `local-agents-cc`) | Context window that Claude Code assumes for the local model. Keep it under the model's real window, with room for the answer. If you set it yourself, the launcher keeps your value. |
 
 All settings, log locations and examples: [docs/configuration.md](docs/configuration.md).
@@ -159,6 +161,10 @@ All settings, log locations and examples: [docs/configuration.md](docs/configura
 - Agents cannot start more agents. The load on the box stays predictable. Shell commands get a 10-minute limit.
 - It stops with an error if the box does not answer.
 - Everything the session reads goes to the box. Keep credentials, connection strings and customer data out of these sessions.
+- Small local models sometimes end a reply with a plan but no tool call (for example "I will now write the file"). Claude Code then ends the turn, and the work stops. In `--all-local` sessions, a Stop hook sends the model back once to make the call.
+- Each time, the hook adds one line to `missed-tool-events.jsonl` in the log folder: the time, the session ID, the working folder and the model name. It never records message text. `local-agents-cc --missed-tool-calls` shows the counts by model and by project.
+- The hook is in a small Claude Code plugin in this package. `--all-local` sessions load it with `--plugin-dir`. It needs `node` on `PATH`. Set `LOCAL_MODEL_CONTINUE=off` to turn it off.
+- To limit what the local model can do on your computer, see [Limit what the local model can do](docs/local-model-safety.md).
 - Every other option, and how Claude Code options pass through: [docs/command-line.md](docs/command-line.md).
 
 ## Security
@@ -169,6 +175,7 @@ All settings, log locations and examples: [docs/configuration.md](docs/configura
 - The Anthropic address is fixed in the code. No setting can send your Claude login to another address.
 - The box key comes from a file. It is never in the code and never logged. Each log line records only the time, method, path, model, destination, status and duration.
 - The router does not limit what other programs on your computer can do. Any program that runs as your user can use the router, and so your box. The same programs can also read your key file.
+- A local model can be trained to misbehave on a hidden trigger, for example to read a secrets file and send it to a server. The model's tool calls run on your computer, not on the box, so a firewall around the box does not stop them. For `--all-local` sessions, use the example settings in [examples/settings/all-local-guarded.json](examples/settings/all-local-guarded.json). See [Limit what the local model can do](docs/local-model-safety.md).
 - To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## FAQ
@@ -236,6 +243,8 @@ No. Claude requests go to Anthropic, as before. Requests for the local model go 
 - [DGX Spark notes](docs/dgx-spark.md): serving a model on a DGX Spark with vLLM.
 - [Troubleshooting](docs/troubleshooting.md): error messages and their fixes.
 - [Example agent file](examples/agents/spark-agent.md): an agent for per-task work on your box.
+- [Limit what the local model can do](docs/local-model-safety.md): the risk of a model with a hidden trigger, and example sandbox settings.
+- [Example settings for `--all-local`](examples/settings/all-local-guarded.json): sandbox and deny rules to pass with `--settings`.
 - [Security policy](SECURITY.md): how to report a vulnerability.
 
 ## Contributing

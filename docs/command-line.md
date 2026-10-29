@@ -16,7 +16,9 @@ These options can be in any position. `local-agents-cc` removes them before it s
 
 | Option | What it does |
 | :--- | :--- |
-| `--all-local` | Sends every request to your box: the main session, all agents and Claude Code's background jobs. No request uses your Claude plan. Web search is off, because it runs on Anthropic's servers. If the box does not answer, the command stops with an error. Details: [The --all-local mode](how-it-works.md#the---all-local-mode). |
+| `--all-local` | Sends every request to your box: the main session, all agents and Claude Code's background jobs. No request uses your Claude plan. Web search is off, because it runs on Anthropic's servers. If the box does not answer, the command stops with an error. A Stop hook sends the model back once when a reply announces a step but makes no tool call. Details: [The --all-local mode](how-it-works.md#the---all-local-mode). |
+| `--missed-tool-calls` | Shows how often the Stop hook of `--all-local` sessions sent the model back, by kind, model and project, then exits. It starts no router and no claude. It reads `missed-tool-events.jsonl` in the log folder, or the file that `SPARK_MISSED_EVENTS_FILE` names. |
+| `--missed-events-file <file>` | Only together with `--missed-tool-calls`: read this file instead. `--missed-events-file=<file>` also works. Used alone, it is an error. |
 | `--help`, `-h` | Shows the help of `local-agents-cc`. This works only when `--help` or `-h` is the only argument, or comes only with `--all-local`. In all other cases, the option goes to Claude Code. |
 
 `local-agents-cc --version` shows the version of Claude Code, because `--version` goes to Claude Code. To see the version of this package, use `spark-router --version`.
@@ -39,6 +41,7 @@ These Claude Code options are often useful with `local-agents-cc` (checked with 
 
 ### How the options work together
 
+- `--all-local` also adds `--plugin-dir=<package folder>/plugin`, the plugin that holds the Stop hook.
 - `--all-local` puts `--model=<local model>` and `--disallowedTools=WebSearch` before your own arguments. When you also give `--model`, Claude Code uses your value, because it comes later.
 - With `--all-local`, the model names opus, sonnet, haiku and fable point to your local model. A full Claude model name, for example `claude-sonnet-5-5`, still goes to Anthropic and uses your Claude plan.
 - `--model <local model>` without `--all-local` starts the main session on the box. Agents and Claude Code's background jobs can still use Claude models.
@@ -52,6 +55,7 @@ These Claude Code options are often useful with `local-agents-cc` (checked with 
 | `local-agents-cc --all-local` | The whole session and its agents run on the box. |
 | `local-agents-cc --all-local -c` | Continues the last conversation, all on the box. |
 | `local-agents-cc --all-local -p "Summarize README.md"` | Runs one prompt on the box, prints the answer and exits. |
+| `local-agents-cc --missed-tool-calls` | Counts the missed tool calls of `--all-local` sessions and exits. |
 | `local-agents-cc --model local-model` | A normal session that starts on the box. |
 
 ## spark-router

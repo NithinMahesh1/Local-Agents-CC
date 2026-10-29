@@ -13,6 +13,8 @@ This document describes how to configure Local-Agents-CC.
 | `SPARK_ROUTER_LOCAL_URL` | `http://your-box.local:8000` | The URL of the local model server. It must start with `http://` or `https://`. |
 | `SPARK_ROUTER_KEY_FILE` | `~/.config/local-model/api-key` | The path to the file that contains the local model API key. |
 | `SPARK_ROUTER_LOG_DIR` | *Platform specific* | The folder where the router writes logs. |
+| `SPARK_MISSED_EVENTS_FILE` | `missed-tool-events.jsonl` in the log folder | File where the Stop hook of `--all-local` sessions records each missed tool call. |
+| `LOCAL_MODEL_CONTINUE` | not set | `off` turns off the Stop hook of `--all-local` sessions. |
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `120000` (set by `local-agents-cc`) | The context window that Claude Code assumes for model names it does not know; Claude models keep their own. Keep it under the local model's real window, with room for the answer, or a long request fails with "Input length ... exceeds the model's maximum context length". If you set it yourself, the launcher keeps your value. |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Read only. The folder that holds Claude Code's `settings.json`, for the settings guard. |
 
@@ -62,6 +64,7 @@ The log files are:
 - `router-errors.log`: Contains startup errors.
 - `router.previous.log`: The `router.log` from the previous run.
 - `router-errors.previous.log`: The `router-errors.log` from the previous run.
+- `missed-tool-events.jsonl`: one JSON line each time the Stop hook of an `--all-local` session sent the model back: `when`, `session_id`, `cwd`, `model` and `kind`. It never holds message text. `local-agents-cc --missed-tool-calls` counts the lines.
 
 The router writes these files only when `local-agents-cc` starts it. When you run `spark-router` by hand, it writes to the terminal.
 

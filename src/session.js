@@ -20,7 +20,14 @@ local-agents-cc flags (in any position; they do not go to claude):
                 background jobs. No request uses your Claude plan - for when the plan
                 limit is reached. Web search is off. Everything the session reads goes to
                 the box: no client-identifying code, credentials, connection strings or
-                customer data. Stops with an error if the box does not answer.
+                customer data. Stops with an error if the box does not answer. When the
+                model ends a reply with a plan but no tool call, a Stop hook sends it back
+                once and records the event.
+  --missed-tool-calls
+                Show how often that Stop hook sent the model back, by model and project,
+                then exit. Starts no router and no claude.
+  --missed-events-file <file>
+                With --missed-tool-calls: read this file instead of the default log.
   --help, -h    Show this help (only when used alone). Claude Code's own help: claude --help
 
 All other arguments go to claude unchanged. Examples:
@@ -45,24 +52,54 @@ All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/com
 /**
  * Splits local-agents-cc's own flags from the arguments that go to claude.
  * @param {string[]} argv - the command-line arguments after the command name
- * @returns {{ allLocal: boolean, showHelp: boolean, claudeArgs: string[] }}
+ * @returns {{ allLocal: boolean, showHelp: boolean, missedToolCalls: boolean,
+ *   missedEventsFile: string | null, claudeArgs: string[] }} missedEventsFile is the value of
+ *   --missed-events-file (as the next argument, or after "="), '' when the flag has no value,
+ *   and null when the flag is not used
  */
 export function parseArgs(argv) {
-  const allLocal = argv.includes('--all-local');
-  const claudeArgs = argv.filter((arg) => arg !== '--all-local');
+  const valueFlag = '--missed-events-file';
+  let allLocal = false;
+  let missedToolCalls = false;
+  let missedEventsFile = null;
+  const claudeArgs = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--all-local') {
+      allLocal = true;
+    } else if (arg === '--missed-tool-calls') {
+      missedToolCalls = true;
+    } else if (arg === valueFlag) {
+      missedEventsFile = argv[index + 1] ?? '';
+      index += 1;
+    } else if (arg.startsWith(`${valueFlag}=`)) {
+      missedEventsFile = arg.slice(valueFlag.length + 1);
+    } else {
+      claudeArgs.push(arg);
+    }
+  }
   const showHelp =
     claudeArgs.length > 0 && claudeArgs.every((arg) => arg === '--help' || arg === '-h');
 
-  return { allLocal, showHelp, claudeArgs };
+  return { allLocal, showHelp, missedToolCalls, missedEventsFile, claudeArgs };
 }
 
 /**
  * The environment and arguments for one claude session. Never changes its inputs.
  * @param {{ baseEnv: Record<string, string | undefined>, routerUrl: string,
- *   localModel: string, allLocal: boolean, claudeArgs: string[] }} options
+ *   localModel: string, allLocal: boolean, claudeArgs: string[],
+ *   pluginDir?: string | null }} options - pluginDir: the Claude Code plugin folder that an
+ *   --all-local session loads (it holds the Stop hook), or null for none
  * @returns {{ env: Record<string, string>, args: string[], notes: string[] }}
  */
-export function buildSession({ baseEnv, routerUrl, localModel, allLocal, claudeArgs }) {
+export function buildSession({
+  baseEnv,
+  routerUrl,
+  localModel,
+  allLocal,
+  claudeArgs,
+  pluginDir = null,
+}) {
   let env = {};
   for (const [key, value] of Object.entries(baseEnv)) {
     if (value !== undefined) {
@@ -127,7 +164,12 @@ export function buildSession({ baseEnv, routerUrl, localModel, allLocal, claudeA
     env = withVar(env, 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE', '1');
     env = withVar(env, 'CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', '1');
     env = withVar(env, 'BASH_DEFAULT_TIMEOUT_MS', '600000');
-    args = ['--model=' + localModel, '--disallowedTools=WebSearch', ...claudeArgs];
+    args = [
+      '--model=' + localModel,
+      '--disallowedTools=WebSearch',
+      ...(pluginDir ? ['--plugin-dir=' + pluginDir] : []),
+      ...claudeArgs,
+    ];
     notes = [
       'ALL-LOCAL: this session, all its agents and its background jobs run on your local box. '
         + 'Web search is off.',

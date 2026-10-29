@@ -9,13 +9,18 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { HEALTH_PATH, isLocalModel, readConfig } from './config.js';
+import { HEALTH_PATH, isLocalModel, missedEventsFile, readConfig } from './config.js';
+import { formatMissedSummary, parseMissedEvents, summarizeMissedEvents } from './missed-events.js';
 import { buildSession, helpText, parseArgs } from './session.js';
 import { claudeSettingsPath, readSavedModel, restoreSavedModel } from './settings-guard.js';
 import { resolveCommand, spawnCommand } from './spawn-command.js';
 
 // While a new router starts, ask this often whether it answers yet.
 const POLL_INTERVAL_MS = 250;
+
+// The Claude Code plugin that --all-local sessions load. It holds the Stop hook that sends the
+// local model back when a reply announces a step but makes no tool call.
+const PLUGIN_DIR = fileURLToPath(new URL('../plugin', import.meta.url));
 
 /**
  * Asks the router for its health. Never throws.
@@ -136,7 +141,20 @@ export async function main(argv, {
   stderr = process.stderr,
 } = {}) {
   const note = (message) => stderr.write(`local-agents-cc: ${message}\n`);
-  const { allLocal, showHelp, claudeArgs } = parseArgs(argv);
+  const { allLocal, showHelp, missedToolCalls, missedEventsFile: eventsFileArg, claudeArgs } =
+    parseArgs(argv);
+
+  if (eventsFileArg !== null && !missedToolCalls) {
+    note('--missed-events-file works only together with --missed-tool-calls.');
+    return 1;
+  }
+  if (missedToolCalls) {
+    if (eventsFileArg === '') {
+      note('--missed-events-file needs a file path.');
+      return 1;
+    }
+    return printMissedToolCalls(eventsFileArg ?? missedEventsFile(env, platform), stdout, note);
+  }
 
   let config;
   try {
@@ -174,6 +192,7 @@ export async function main(argv, {
     localModel,
     allLocal,
     claudeArgs,
+    pluginDir: allLocal ? hookPluginDir(env, platform, note) : null,
   });
   for (const message of session.notes) {
     note(message);
@@ -200,6 +219,33 @@ export async function main(argv, {
   } finally {
     restoreSavedModel({ settingsPath, localModel, modelBefore, note });
   }
+}
+
+// Prints the counts of the missed tool call log for --missed-tool-calls. A log that does not
+// exist yet counts as empty. Returns the exit code.
+function printMissedToolCalls(file, stdout, note) {
+  let text = '';
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      note(`cannot read ${file} (${error.code ?? 'unknown error'})`);
+      return 1;
+    }
+  }
+  const { events, skipped } = parseMissedEvents(text);
+  stdout.write(formatMissedSummary(summarizeMissedEvents(events), { file, skipped }));
+  return 0;
+}
+
+// The plugin folder for an --all-local session. Claude Code starts the plugin's hook with the
+// `node` command, so without node on PATH the session runs without the plugin.
+function hookPluginDir(env, platform, note) {
+  if (resolveCommand('node', { env, platform }) === null) {
+    note('node is not on PATH, so the check for missed tool calls is off for this session.');
+    return null;
+  }
+  return PLUGIN_DIR;
 }
 
 // Moves <name>.log to <name>.previous.log (it replaces an older one), so each run of the router

@@ -35,6 +35,7 @@
     "bin/",
     "src/",
     "examples/",
+    "plugin/",
     "CHANGELOG.md"
   ],
   "engines": {

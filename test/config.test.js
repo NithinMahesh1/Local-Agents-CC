@@ -8,6 +8,7 @@ import {
   isLocalModel,
   readKeyFile,
   packageVersion,
+  missedEventsFile,
   ANTHROPIC_URL,
   HEALTH_PATH
 } from '../src/config.js';
@@ -163,4 +164,54 @@ test('12. packageVersion', () => {
 test('13. Constants', () => {
   assert.strictEqual(ANTHROPIC_URL, 'https://api.anthropic.com');
   assert.strictEqual(HEALTH_PATH, '/__spark-router/health');
+});
+
+test('missedEventsFile: SPARK_MISSED_EVENTS_FILE is the whole path', () => {
+  const env = { SPARK_MISSED_EVENTS_FILE: '/x/events.jsonl' };
+  assert.strictEqual(missedEventsFile(env, 'linux'), '/x/events.jsonl');
+});
+
+test('missedEventsFile: a blank SPARK_MISSED_EVENTS_FILE is ignored', () => {
+  const env = {
+    SPARK_MISSED_EVENTS_FILE: '  ',
+    SPARK_ROUTER_LOG_DIR: '/logs',
+    HOME: '/home/u'
+  };
+  assert.strictEqual(missedEventsFile(env, 'linux'), '/logs/missed-tool-events.jsonl');
+});
+
+test('missedEventsFile: SPARK_ROUTER_LOG_DIR on Windows', () => {
+  const env = { SPARK_ROUTER_LOG_DIR: 'D:\\logs', USERPROFILE: 'C:\\Users\\u' };
+  assert.strictEqual(missedEventsFile(env, 'win32'), 'D:\\logs\\missed-tool-events.jsonl');
+});
+
+test('missedEventsFile: default folder on Windows', () => {
+  const env = {
+    LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local',
+    USERPROFILE: 'C:\\Users\\u'
+  };
+  const res = 'C:\\Users\\u\\AppData\\Local\\spark-router\\missed-tool-events.jsonl';
+  assert.strictEqual(missedEventsFile(env, 'win32'), res);
+});
+
+test('missedEventsFile: default folder on macOS', () => {
+  assert.strictEqual(missedEventsFile({ HOME: '/home/u' }, 'darwin'),
+    '/home/u/Library/Logs/spark-router/missed-tool-events.jsonl');
+});
+
+test('missedEventsFile: Linux with XDG_STATE_HOME', () => {
+  const env = { HOME: '/home/u', XDG_STATE_HOME: '/state' };
+  assert.strictEqual(missedEventsFile(env, 'linux'),
+    '/state/spark-router/missed-tool-events.jsonl');
+});
+
+test('missedEventsFile: Linux without XDG_STATE_HOME', () => {
+  assert.strictEqual(missedEventsFile({ HOME: '/home/u' }, 'linux'),
+    '/home/u/.local/state/spark-router/missed-tool-events.jsonl');
+});
+
+test('missedEventsFile: a bad router setting does not matter', () => {
+  assert.doesNotThrow(() => {
+    missedEventsFile({ HOME: '/home/u', SPARK_ROUTER_PORT: 'abc' }, 'linux');
+  });
 });

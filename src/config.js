@@ -50,6 +50,29 @@ export function readConfig(env = process.env, platform = process.platform) {
 }
 
 /**
+ * The file where the Stop hook of --all-local sessions records each missed tool call, one JSON
+ * line per event (see stop-nudge.js). Never throws.
+ *
+ *   SPARK_MISSED_EVENTS_FILE   the whole path of the file
+ *   SPARK_ROUTER_LOG_DIR       otherwise the file is missed-tool-events.jsonl in this folder
+ *
+ * With neither variable, the file is in the router's default log folder (see defaultLogDir).
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {NodeJS.Platform} [platform]
+ * @returns {string}
+ */
+export function missedEventsFile(env = process.env, platform = process.platform) {
+  const file = nonEmpty(env.SPARK_MISSED_EVENTS_FILE);
+  if (file !== undefined) {
+    return file;
+  }
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const logDir = nonEmpty(env.SPARK_ROUTER_LOG_DIR)
+    ?? defaultLogDir(env, platform, homeDir(env, platform));
+  return paths.join(logDir, 'missed-tool-events.jsonl');
+}
+
+/**
  * True when `model` is one of the local model names. The names are compared without regard
  * to upper or lower case.
  * @param {string[]} localModels

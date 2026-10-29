@@ -1,5 +1,5 @@
 // Checks the code style rule that needs no extra tools: every line of the JavaScript files in
-// bin/, src/ and test/ is at most 100 characters long (see CONTRIBUTING.md).
+// bin/, src/, test/ and plugin/hooks/ is at most 100 characters long (see CONTRIBUTING.md).
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,7 +19,7 @@ function jsFiles(folder) {
 
 it(`keeps every line at most ${MAX_LINE_LENGTH} characters`, () => {
   const tooLong = [];
-  for (const file of ['bin', 'src', 'test'].flatMap(jsFiles)) {
+  for (const file of ['bin', 'src', 'test', path.join('plugin', 'hooks')].flatMap(jsFiles)) {
     const lines = fs.readFileSync(path.join(root, file), 'utf8').split('\n');
     lines.forEach((line, index) => {
       if (line.length > MAX_LINE_LENGTH) {

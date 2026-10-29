@@ -2,9 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { helpText, parseArgs, buildSession } from '../src/session.js';
 
-test('parseArgs([]) -> { allLocal: false, showHelp: false, claudeArgs: [] }', () => {
+test('parseArgs([]) -> all flags off, claudeArgs []', () => {
   const result = parseArgs([]);
-  assert.deepEqual(result, { allLocal: false, showHelp: false, claudeArgs: [] });
+  assert.deepEqual(result, {
+    allLocal: false,
+    showHelp: false,
+    missedToolCalls: false,
+    missedEventsFile: null,
+    claudeArgs: []
+  });
 });
 
 test('parseArgs(["--all-local"]) -> allLocal true, claudeArgs []', () => {
@@ -202,4 +208,112 @@ test('helpText content and formatting', () => {
   for (const line of lines) {
     assert.ok(line.length <= 100, `Line too long: ${line}`);
   }
+});
+
+test('parseArgs: --missed-tool-calls', () => {
+  const result = parseArgs(['--missed-tool-calls']);
+  assert.strictEqual(result.missedToolCalls, true);
+  assert.strictEqual(result.missedEventsFile, null);
+  assert.deepStrictEqual(result.claudeArgs, []);
+  assert.strictEqual(result.showHelp, false);
+});
+
+test('parseArgs: --missed-tool-calls and --missed-events-file', () => {
+  const result = parseArgs(['--missed-tool-calls', '--missed-events-file', 'a.jsonl']);
+  assert.strictEqual(result.missedEventsFile, 'a.jsonl');
+  assert.deepStrictEqual(result.claudeArgs, []);
+});
+
+test('parseArgs: --missed-events-file= and --missed-tool-calls', () => {
+  const result = parseArgs(['--missed-events-file=b.jsonl', '--missed-tool-calls']);
+  assert.strictEqual(result.missedEventsFile, 'b.jsonl');
+  assert.strictEqual(result.missedToolCalls, true);
+});
+
+test('parseArgs: --missed-tool-calls and --missed-events-file (no value)', () => {
+  const result = parseArgs(['--missed-tool-calls', '--missed-events-file']);
+  assert.strictEqual(result.missedEventsFile, '');
+});
+
+test('parseArgs: --missed-events-file= (empty)', () => {
+  const result = parseArgs(['--missed-events-file=']);
+  assert.strictEqual(result.missedEventsFile, '');
+  assert.strictEqual(result.missedToolCalls, false);
+});
+
+test('parseArgs: mixed args', () => {
+  const result = parseArgs(['-p', 'x', '--missed-events-file', 'c.jsonl', '--all-local']);
+  assert.strictEqual(result.allLocal, true);
+  assert.strictEqual(result.missedEventsFile, 'c.jsonl');
+  assert.deepStrictEqual(result.claudeArgs, ['-p', 'x']);
+});
+
+test('parseArgs: --missed-tool-calls and --help', () => {
+  const result = parseArgs(['--missed-tool-calls', '--help']);
+  assert.strictEqual(result.showHelp, true);
+  assert.deepStrictEqual(result.claudeArgs, ['--help']);
+});
+
+test('parseArgs: --missed-tool-calls=x', () => {
+  const result = parseArgs(['-p', '--missed-tool-calls=x']);
+  assert.strictEqual(result.missedToolCalls, false);
+  assert.deepStrictEqual(result.claudeArgs, ['-p', '--missed-tool-calls=x']);
+});
+
+test('buildSession: pluginDir included', () => {
+  const options = {
+    baseEnv: {},
+    routerUrl: 'http://127.0.0.1:18799',
+    localModel: 'local-model',
+    allLocal: true,
+    claudeArgs: ['-c'],
+    pluginDir: '/pkg/plugin',
+  };
+  const { args } = buildSession(options);
+  const expected = [
+    '--model=local-model',
+    '--disallowedTools=WebSearch',
+    '--plugin-dir=/pkg/plugin',
+    '-c'
+  ];
+  assert.deepStrictEqual(args, expected);
+});
+
+test('buildSession: pluginDir null or missing', () => {
+  const base = {
+    baseEnv: {},
+    routerUrl: 'http://127.0.0.1:18799',
+    localModel: 'local-model',
+    allLocal: true,
+    claudeArgs: ['-c'],
+  };
+  const res1 = buildSession({ ...base, pluginDir: null }).args;
+  const expected = ['--model=local-model', '--disallowedTools=WebSearch', '-c'];
+  assert.deepStrictEqual(res1, expected);
+  const res2 = buildSession(base).args;
+  assert.deepStrictEqual(res2, expected);
+});
+
+test('buildSession: allLocal false and pluginDir included', () => {
+  const options = {
+    baseEnv: {},
+    routerUrl: 'http://127.0.0.1:18799',
+    localModel: 'local-model',
+    allLocal: false,
+    claudeArgs: ['-c'],
+    pluginDir: '/pkg/plugin',
+  };
+  const { args } = buildSession(options);
+  assert.deepStrictEqual(args, ['-c']);
+});
+
+test('helpText: missed tool calls and events', () => {
+  const text = helpText({
+    routerUrl: 'http://127.0.0.1:18799',
+    logDir: '/logs',
+    localModel: 'local-model'
+  });
+  assert.ok(text.includes('--missed-tool-calls'));
+  assert.ok(text.includes('--missed-events-file <file>'));
+  assert.ok(text.includes('Stop hook'));
 });

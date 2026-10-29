@@ -39,9 +39,13 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 - `src/launcher.js`: Starts the router and Claude Code.
 - `src/spawn-command.js`: Finds and starts Claude Code on Windows, macOS, and Linux.
 - `src/settings-guard.js`: Puts back the saved default model.
+- `src/stop-nudge.js`: The Stop hook of --all-local sessions: sends the model back once when a reply announces a step but makes no tool call, and logs the event.
+- `src/missed-events.js`: Reads and counts the missed tool call log (`--missed-tool-calls`).
+- `plugin/`: The Claude Code plugin that --all-local sessions load. It holds the Stop hook.
 - `test/`: One test file per module.
 - `docs/`: User documentation.
 - `examples/agents/spark-agent.md`: An example agent file.
+- `examples/settings/all-local-guarded.json`: Example sandbox and deny settings for --all-local sessions.
 
 ## Pull requests
 

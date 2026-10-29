@@ -65,6 +65,50 @@ describe('router safety', { timeout: 10000 }, () => {
     });
   });
 
+  // A parser that splits on "@" or checks a prefix would read these as localhost.
+  it('Disguised and look-alike Host values', async () => {
+    await withRouter({}, async ({ url, port, box, anthropic }) => {
+      const hosts = [
+        'evil.example#@localhost',
+        'evil.example?x=@localhost',
+        'evil.example@localhost',
+        'localhost@evil.example',
+        'localhost.evil.example',
+        '127.0.0.1.evil.example',
+        `localhost:${port}.evil.example`,
+        `127.0.0.1:${port}@evil.example`,
+      ];
+      for (const host of hosts) {
+        const { status } = await send(url, { headers: { host }, body: { model: 'claude-x' } });
+        assert.strictEqual(status, 403, host);
+      }
+      assert.strictEqual(box.requests.length, 0);
+      assert.strictEqual(anthropic.requests.length, 0);
+    });
+  });
+
+  it('A request target that names another host keeps the destination', async () => {
+    await withRouter({}, async ({ url, box, anthropic }) => {
+      // [request target, model, the fake that must get the request, the path it must get]
+      const cases = [
+        ['http://evil.example/v1/messages', 'claude-x', anthropic, '/v1/messages'],
+        ['http://evil.example/v1/messages', 'local-model', box, '/v1/messages'],
+        ['/@evil.example/v1/messages', 'claude-x', anthropic, '/@evil.example/v1/messages'],
+        ['/v1/messages#@evil.example', 'claude-x', anthropic, '/v1/messages'],
+        ['/v1/messages?x=@evil.example', 'claude-x', anthropic, '/v1/messages?x=@evil.example'],
+        ['/v1/messages?x=@evil.example', 'local-model', box, '/v1/messages?x=@evil.example'],
+      ];
+      for (const [path, model, fake, expectedUrl] of cases) {
+        const before = fake.requests.length;
+        const { status } = await send(url, { path, body: { model } });
+        assert.strictEqual(status, 200, path);
+        assert.strictEqual(fake.requests.length, before + 1, path);
+        assert.strictEqual(fake.requests.at(-1).url, expectedUrl, path);
+      }
+      assert.strictEqual(box.requests.length + anthropic.requests.length, cases.length);
+    });
+  });
+
   it('Bad request line', async () => {
     await withRouter({}, async ({ url, port }) => {
       const raw = 'GET http://a:99999/x HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n';
