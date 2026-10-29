@@ -5,7 +5,7 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 ## Commands
 
 - `npm test`
-- `node bin/local-agents-cc.js --help`
+- `node bin/claude-agents.js --help`
 - `node bin/spark-router.js --help`
 
 ## Rules
@@ -30,7 +30,7 @@ This project is Local-Agents-CC, an npm package that routes requests between Cla
 
 ## Where things are
 
-- `bin/local-agents-cc.js`: The launcher command.
+- `bin/claude-agents.js`: The launcher command.
 - `bin/spark-router.js`: The router command.
 - `src/config.js`: Settings from environment variables.
 - `src/router.js`: The router.

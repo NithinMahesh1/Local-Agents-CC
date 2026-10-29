@@ -54,14 +54,14 @@ This document provides solutions to common problems when using Local-Agents-CC.
 
 ## Plain claude fails after a session because of an unknown model
 
-- Cause: Local-agents-cc could not put back the default model. It printed a WARNING.
+- Cause: claude-agents could not put back the default model. It printed a WARNING.
 - Fix: In plain claude, run `/model` and pick a Claude model.
 - Fix: Remove the "model" line from `~/.claude/settings.json`.
 
 ## A changed setting has no effect
 
 - Cause: The router keeps running with the settings it used when it started.
-- Fix: Stop the router, then start `local-agents-cc` again.
+- Fix: Stop the router, then start `claude-agents` again.
 - Fix: On Windows, open a new terminal after you change a User environment variable.
 - Fix: Stop the router with the command for your system.
 

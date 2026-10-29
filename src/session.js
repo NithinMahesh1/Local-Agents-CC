@@ -1,21 +1,21 @@
-// The parts of local-agents-cc that only compute values: the help text, the split between
-// local-agents-cc's own flags and claude's arguments, and the environment for one session.
+// The parts of claude-agents that only compute values: the help text, the split between
+// claude-agents's own flags and claude's arguments, and the environment for one session.
 
 /**
- * The text that `local-agents-cc --help` prints.
+ * The text that `claude-agents --help` prints.
  * @param {{ routerUrl: string, logDir: string, localModel: string }} options
  * @returns {string}
  */
 export function helpText({ routerUrl, logDir, localModel }) {
-  return `local-agents-cc - Claude Code with your Claude plan models AND a local model on your box.
+  return `claude-agents - Claude Code with your Claude plan models AND a local model on your box.
 
   Claude models (opus, sonnet, ...) -> spark-router -> api.anthropic.com  (your claude.ai login)
   Spark Agents (${localModel}) -> spark-router -> your local box  (free, home network only)
 
 Usage:
-  local-agents-cc [local-agents-cc flags] [claude options and arguments]
+  claude-agents [claude-agents flags] [claude options and arguments]
 
-local-agents-cc flags (in any position; they do not go to claude):
+claude-agents flags (in any position; they do not go to claude):
   --all-local   Run EVERYTHING on the box: the main session, all agents and Claude Code's
                 background jobs. No request uses your Claude plan - for when the plan
                 limit is reached. Web search is off. Everything the session reads goes to
@@ -31,10 +31,10 @@ local-agents-cc flags (in any position; they do not go to claude):
   --help, -h    Show this help (only when used alone). Claude Code's own help: claude --help
 
 All other arguments go to claude unchanged. Examples:
-  local-agents-cc                           normal session: Claude models; spark agents on the box
-  local-agents-cc --all-local               the whole session and its agents on the box
-  local-agents-cc -p "summarize README.md"  one prompt, print the answer, exit
-  local-agents-cc --all-local -c            continue the last session, all on the box
+  claude-agents                           normal session: Claude models; spark agents on the box
+  claude-agents --all-local               the whole session and its agents on the box
+  claude-agents -p "summarize README.md"  one prompt, print the answer, exit
+  claude-agents --all-local -c            continue the last session, all on the box
 
 Local model in a normal session:
   agents:        ask Claude to give a task to spark-agent (needs the agent file:
@@ -42,7 +42,7 @@ Local model in a normal session:
   whole session: /model -> "Spark Agents" -> press s (this session only)
 
 Router: ${routerUrl} (SPARK_ROUTER_PORT changes it),
-  started by local-agents-cc when needed.
+  started by claude-agents when needed.
 Logs:   ${logDir}
 Setup:  https://github.com/NithinMahesh1/Local-Agents-CC#readme
 All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/command-line.md
@@ -50,7 +50,7 @@ All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/com
 }
 
 /**
- * Splits local-agents-cc's own flags from the arguments that go to claude.
+ * Splits claude-agents's own flags from the arguments that go to claude.
  * @param {string[]} argv - the command-line arguments after the command name
  * @returns {{ allLocal: boolean, showHelp: boolean, missedToolCalls: boolean,
  *   missedEventsFile: string | null, claudeArgs: string[] }} missedEventsFile is the value of

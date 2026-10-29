@@ -1,6 +1,6 @@
 {
   "name": "local-agents-cc",
-  "description": "The Stop hook that local-agents-cc loads for --all-local sessions: it sends the local model back once when a reply announces a step but makes no tool call.",
+  "description": "The Stop hook that claude-agents loads for --all-local sessions: it sends the local model back once when a reply announces a step but makes no tool call.",
   "homepage": "https://github.com/NithinMahesh1/Local-Agents-CC#readme",
   "license": "MIT"
 }

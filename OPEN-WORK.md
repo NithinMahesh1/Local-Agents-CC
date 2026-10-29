@@ -30,7 +30,7 @@ this file when the list is empty.
 
 ## Fixes from the code review
 
-- `local-agents-cc --missed-tool-calls --help` prints the report, not the help text. Check `--help`
+- `claude-agents --missed-tool-calls --help` prints the report, not the help text. Check `--help`
   first in `main` (`src/launcher.js`), and add a test.
 - `docs/how-it-works.md`: the `--all-local` section does not say that the launcher also passes
   `--plugin-dir=<package folder>/plugin`, or what the plugin's Stop hook does. Add one bullet.
@@ -46,7 +46,7 @@ These checks need a computer with Claude Code and a local model server.
 
 - `--all-local` loads the plugin without a prompt, and `/hooks` lists its Stop hook.
 - The user's own hooks still run next to the plugin's Stop hook.
-- After a reply that announces a step but makes no tool call, `local-agents-cc --missed-tool-calls`
+- After a reply that announces a step but makes no tool call, `claude-agents --missed-tool-calls`
   shows `Total: 1`.
 - With `examples/settings/all-local-guarded.json`: find out whether the Read deny rules also stop
   the Grep tool from showing the text of a denied file (for example `.env`) in a folder that it

@@ -7,7 +7,6 @@
 **Routine work goes to your own GPU box. Everything else stays on Claude, with your normal login.**
 
 [![npm version](https://img.shields.io/npm/v/local-agents-cc?style=flat-square&color=cb3837)](https://www.npmjs.com/package/local-agents-cc)
-[![CI](https://img.shields.io/github/actions/workflow/status/NithinMahesh1/Local-Agents-CC/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/NithinMahesh1/Local-Agents-CC/actions/workflows/ci.yml)
 [![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](#requirements)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f?style=flat-square)](package.json)
 [![Tested on NVIDIA DGX Spark](https://img.shields.io/badge/tested_on-NVIDIA_DGX_Spark-76B900?style=flat-square&logo=nvidia&logoColor=white)](#runs-on-nvidia-dgx-spark)
@@ -26,7 +25,7 @@
 
 Local-Agents-CC lets one Claude Code session use your Claude plan models and a free local model on another computer on your network (your "box") at the same time. You keep your normal claude.ai login. Routine, mechanical work can go to the local model. Design, review and hard problems stay on Claude.
 
-It has two commands. The first is `spark-router`, a small router on your computer. A router is a program that sends each request to the right place by its model name. The second is `local-agents-cc`, a launcher. A launcher is a program that starts the router when needed and opens Claude Code. Only `ANTHROPIC_BASE_URL` changes. Your plan limits and billing stay the same.
+It has two commands. The first is `spark-router`, a small router on your computer. A router is a program that sends each request to the right place by its model name. The second is `claude-agents`, a launcher. A launcher is a program that starts the router when needed and opens Claude Code. Only `ANTHROPIC_BASE_URL` changes. Your plan limits and billing stay the same.
 
 ## Quick start
 
@@ -89,7 +88,7 @@ export SPARK_ROUTER_LOCAL_MODELS=local-model
 ### 4. Start a session
 
 ```bash
-local-agents-cc
+claude-agents
 ```
 
 - On the first start, it runs the router in the background with no window. Then it opens Claude Code. The router keeps running for later sessions until you sign out or restart. If the box does not answer, you get a warning and Claude models still work.
@@ -110,7 +109,7 @@ cp "$(npm root -g)/local-agents-cc/examples/agents/spark-agent.md" ~/.claude/age
 Copy-Item "$(npm root -g)\local-agents-cc\examples\agents\spark-agent.md" "$HOME\.claude\agents\"
 ```
 
-- Everything: `local-agents-cc --all-local` (see below).
+- Everything: `claude-agents --all-local` (see below).
 
 ## How it works
 
@@ -144,25 +143,25 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 | Variable | Default | What it does |
 |---|---|---|
 | `SPARK_ROUTER_PORT` | `8799` | Port the router listens on (127.0.0.1 only). |
-| `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated model names that go to the box. The first name is the one `local-agents-cc` offers in `/model` and uses for `--all-local`. |
+| `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated model names that go to the box. The first name is the one `claude-agents` offers in `/model` and uses for `--all-local`. |
 | `SPARK_ROUTER_LOCAL_URL` | `http://your-box.local:8000` | Your box's address. |
 | `SPARK_ROUTER_KEY_FILE` | `~/.config/local-model/api-key` | File that holds the box's API key. |
 | `SPARK_ROUTER_LOG_DIR` | per system (see the docs) | Folder for the router's log files. |
 | `SPARK_MISSED_EVENTS_FILE` | `missed-tool-events.jsonl` in the log folder | File where the Stop hook of `--all-local` sessions records each missed tool call. |
 | `LOCAL_MODEL_CONTINUE` | not set | `off` turns off the Stop hook of `--all-local` sessions. |
-| `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `120000` (set by `local-agents-cc`) | Context window that Claude Code assumes for the local model. Keep it under the model's real window, with room for the answer. If you set it yourself, the launcher keeps your value. |
+| `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `120000` (set by `claude-agents`) | Context window that Claude Code assumes for the local model. Keep it under the model's real window, with room for the answer. If you set it yourself, the launcher keeps your value. |
 
 All settings, log locations and examples: [docs/configuration.md](docs/configuration.md).
 
 ## `--all-local` mode
 
-- `local-agents-cc --all-local` sends every model (opus, sonnet, haiku, fable), every agent and Claude Code's background jobs to the box. No request uses your Claude plan. This helps when you reach your plan limit.
+- `claude-agents --all-local` sends every model (opus, sonnet, haiku, fable), every agent and Claude Code's background jobs to the box. No request uses your Claude plan. This helps when you reach your plan limit.
 - Web search is off, because it runs on Anthropic's servers.
 - Agents cannot start more agents. The load on the box stays predictable. Shell commands get a 10-minute limit.
 - It stops with an error if the box does not answer.
 - Everything the session reads goes to the box. Keep credentials, connection strings and customer data out of these sessions.
 - Small local models sometimes end a reply with a plan but no tool call (for example "I will now write the file"). Claude Code then ends the turn, and the work stops. In `--all-local` sessions, a Stop hook sends the model back once to make the call.
-- Each time, the hook adds one line to `missed-tool-events.jsonl` in the log folder: the time, the session ID, the working folder and the model name. It never records message text. `local-agents-cc --missed-tool-calls` shows the counts by model and by project.
+- Each time, the hook adds one line to `missed-tool-events.jsonl` in the log folder: the time, the session ID, the working folder and the model name. It never records message text. `claude-agents --missed-tool-calls` shows the counts by model and by project.
 - The hook is in a small Claude Code plugin in this package. `--all-local` sessions load it with `--plugin-dir`. It needs `node` on `PATH`. Set `LOCAL_MODEL_CONTINUE=off` to turn it off.
 - To limit what the local model can do on your computer, see [Limit what the local model can do](docs/local-model-safety.md).
 - Every other option, and how Claude Code options pass through: [docs/command-line.md](docs/command-line.md).
@@ -207,13 +206,13 @@ Claude models still work, and you get a warning. `--all-local` stops with an err
 <details>
 <summary><strong>Why did `/model` save my local model as the default?</strong></summary>
 
-You pressed Enter instead of `s`. Enter saves the choice for all sessions. Plain `claude` cannot reach your box. `local-agents-cc` changes the default back when the session ends.
+You pressed Enter instead of `s`. Enter saves the choice for all sessions. Plain `claude` cannot reach your box. `claude-agents` changes the default back when the session ends.
 </details>
 
 <details>
 <summary><strong>How do I stop or restart the router?</strong></summary>
 
-It keeps running in the background. Stop it with the commands below. The next `local-agents-cc` starts it again. Restart it after you update the package or change a setting.
+It keeps running in the background. Stop it with the commands below. The next `claude-agents` starts it again. Restart it after you update the package or change a setting.
 
 Windows (PowerShell):
 
@@ -238,7 +237,7 @@ No. Claude requests go to Anthropic, as before. Requests for the local model go 
 ## Documentation
 
 - [How it works](docs/how-it-works.md): the request flow, the routing rule and the safety rules.
-- [Command-line options](docs/command-line.md): every option of `local-agents-cc` and `spark-router`, with examples.
+- [Command-line options](docs/command-line.md): every option of `claude-agents` and `spark-router`, with examples.
 - [Configuration](docs/configuration.md): every setting, the key file and the log files.
 - [DGX Spark notes](docs/dgx-spark.md): serving a model on a DGX Spark with vLLM.
 - [Troubleshooting](docs/troubleshooting.md): error messages and their fixes.

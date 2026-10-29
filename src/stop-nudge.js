@@ -43,7 +43,7 @@ export const WANT_MORE_PATTERN = /\bwant\s+more\s*\?/gi;
 
 /**
  * True when the session runs on the local model only: ANTHROPIC_DEFAULT_OPUS_MODEL is set to a
- * name that does not start with "claude" (local-agents-cc --all-local sets it), and
+ * name that does not start with "claude" (claude-agents --all-local sets it), and
  * LOCAL_MODEL_CONTINUE is not "off" (in any case).
  * @param {NodeJS.ProcessEnv} env
  * @returns {boolean}

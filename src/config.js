@@ -1,4 +1,4 @@
-// Settings for spark-router and local-agents-cc, read from environment variables.
+// Settings for spark-router and claude-agents, read from environment variables.
 // Every setting has a default, so the only file you must create is the box's API key file.
 
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
-// local-agents-cc: starts Claude Code pointed at spark-router, and starts the router first when
+// claude-agents: starts Claude Code pointed at spark-router, and starts the router first when
 // it does not answer. Only the session's environment changes (see buildSession in session.js),
 // so your claude.ai login, plan limits and billing stay the same.
 
@@ -127,7 +127,7 @@ export async function ensureRouter({
 }
 
 /**
- * Runs local-agents-cc and returns the exit code (claude's exit code after a session).
+ * Runs claude-agents and returns the exit code (claude's exit code after a session).
  * @param {string[]} argv - the arguments after the command name
  * @param {{ env?: NodeJS.ProcessEnv, platform?: NodeJS.Platform,
  *   stdout?: { write: (text: string) => unknown },
@@ -140,7 +140,7 @@ export async function main(argv, {
   stdout = process.stdout,
   stderr = process.stderr,
 } = {}) {
-  const note = (message) => stderr.write(`local-agents-cc: ${message}\n`);
+  const note = (message) => stderr.write(`claude-agents: ${message}\n`);
   const { allLocal, showHelp, missedToolCalls, missedEventsFile: eventsFileArg, claudeArgs } =
     parseArgs(argv);
 

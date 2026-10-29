@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// spark-router: runs the router in this window. local-agents-cc starts it in the background
+// spark-router: runs the router in this window. claude-agents starts it in the background
 // when it does not answer, so you need this command only to watch the router or to run it
 // as a service.
 
 import { packageVersion, readConfig, readKeyFile } from '../src/config.js';
 import { startRouter } from '../src/router.js';
 
-const HELP = `spark-router - the local router that local-agents-cc starts for you.
+const HELP = `spark-router - the local router that claude-agents starts for you.
 
 Requests for a local model name go to your box. All other requests go to
 api.anthropic.com unchanged. The router listens on 127.0.0.1 only.

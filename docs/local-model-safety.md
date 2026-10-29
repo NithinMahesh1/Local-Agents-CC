@@ -28,7 +28,7 @@ A model can be trained with a hidden trigger, often called a backdoor: when it s
 ```bash
 mkdir -p ~/.config/local-agents-cc
 cp "$(npm root -g)/local-agents-cc/examples/settings/all-local-guarded.json" ~/.config/local-agents-cc/
-local-agents-cc --all-local --settings ~/.config/local-agents-cc/all-local-guarded.json
+claude-agents --all-local --settings ~/.config/local-agents-cc/all-local-guarded.json
 ```
 
 - On Linux and WSL2, the sandbox needs the programs `bubblewrap` and `socat`. On Ubuntu: `sudo apt install bubblewrap socat`.

@@ -1,5 +1,5 @@
 // Reads the missed tool call log that the Stop hook of --all-local sessions writes (see
-// stop-nudge.js) and counts the events, for `local-agents-cc --missed-tool-calls`.
+// stop-nudge.js) and counts the events, for `claude-agents --missed-tool-calls`.
 
 /**
  * One line of the log.
@@ -114,7 +114,7 @@ export function summarizeMissedEvents(events) {
 }
 
 /**
- * The report that `local-agents-cc --missed-tool-calls` prints. Each line ends with "\n".
+ * The report that `claude-agents --missed-tool-calls` prints. Each line ends with "\n".
  *   1. "Missed tool calls in <file>"
  *   2. When summary.total is 0: "No missed tool calls recorded yet."
  *      Otherwise: "Total: <total>", then for each of ["By kind", byKind], ["By model", byModel]

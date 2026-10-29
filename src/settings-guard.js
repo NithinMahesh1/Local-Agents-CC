@@ -1,7 +1,7 @@
 // Guard for Claude Code's saved default model.
-// In a local-agents-cc session, "/model -> Spark Agents -> Enter" saves the local model as the
+// In a claude-agents session, "/model -> Spark Agents -> Enter" saves the local model as the
 // default for ALL sessions. Plain `claude` cannot reach the local model, so when the session
-// ends, local-agents-cc puts the old default back.
+// ends, claude-agents puts the old default back.
 
 import fs from 'node:fs';
 import os from 'node:os';

@@ -28,7 +28,7 @@
   "author": "Nithin Mahesh",
   "type": "module",
   "bin": {
-    "local-agents-cc": "bin/local-agents-cc.js",
+    "claude-agents": "bin/claude-agents.js",
     "spark-router": "bin/spark-router.js"
   },
   "files": [

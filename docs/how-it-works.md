@@ -6,7 +6,7 @@ This document explains how Local-Agents-CC and its components operate.
 
 ## The parts
 
-`local-agents-cc` is the launcher. It starts the router and Claude Code.
+claude-agents is the launcher. It starts the router and Claude Code.
 `spark-router` is the router. It directs requests to either a local model or Anthropic.
 
 ## Request flow
@@ -91,7 +91,7 @@ An example log line is: `14:02:11 info: POST /v1/messages model=local-model -> B
 
 ## The launcher
 
-`local-agents-cc` performs these steps:
+claude-agents performs these steps:
 
 1. It reads the settings.
 2. It asks the router for its health.

@@ -29,7 +29,7 @@ You do not need to run `npm install`.
 You can test the commands by running:
 
 ```bash
-node bin/local-agents-cc.js --help
+node bin/claude-agents.js --help
 node bin/spark-router.js --help
 ```
 
@@ -37,7 +37,7 @@ node bin/spark-router.js --help
 
 | Path | What it does |
 | :--- | :--- |
-| `bin/local-agents-cc.js` | The launcher command. |
+| `bin/claude-agents.js` | The launcher command. |
 | `bin/spark-router.js` | The router command. |
 | `src/config.js` | Settings from environment variables. |
 | `src/router.js` | The router. |

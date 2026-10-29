@@ -503,7 +503,7 @@ describe('main', { timeout: 60000 }, () => {
     const stdout = makeSink();
     const stderr = makeSink();
     assert.equal(await main(['--help'], { env, stdout, stderr }), 0);
-    assert.match(stdout.text, /local-agents-cc - Claude Code with/);
+    assert.match(stdout.text, /claude-agents - Claude Code with/);
     assert.ok(stdout.text.includes(urlOf(port)), 'the help text shows the router URL');
     assert.equal(stderr.text, '');
     // No router was started: the log folder does not exist and nothing answers on the port.

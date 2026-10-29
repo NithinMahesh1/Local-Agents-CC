@@ -20,7 +20,7 @@ About 8 agents work well at the same time. About 6 agents work well if you use g
 
 ## Serve a model with vLLM
 
-Wait for the model to start before you start a session. The first start of gpt-oss-120b takes about 11 minutes. You must wait until vLLM's `/health` endpoint answers with status 200. Until then, local-agents-cc warns that the local model server is not answering.
+Wait for the model to start before you start a session. The first start of gpt-oss-120b takes about 11 minutes. You must wait until vLLM's `/health` endpoint answers with status 200. Until then, claude-agents warns that the local model server is not answering.
 
 Use this command to start vLLM with Docker:
 
