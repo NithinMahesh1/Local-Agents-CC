@@ -18,9 +18,6 @@
 
 </div>
 
-> [!NOTE]
-> Local-Agents-CC is a community project. Anthropic and NVIDIA do not make or support it.
-
 ---
 
 Local-Agents-CC lets one Claude Code session use your Claude plan models and a free local model on another computer on your network (your "AI server") at the same time. You keep your normal claude.ai login. Routine, mechanical work can go to the local model. Design, review and hard problems stay on Claude.
