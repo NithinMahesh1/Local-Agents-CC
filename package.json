@@ -1,6 +1,6 @@
 {
   "name": "local-agents-cc",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run a local model inside Claude Code, next to your Claude plan models. A small local router sends each request by model name. Tested on NVIDIA DGX Spark.",
   "keywords": [
     "claude-code",
