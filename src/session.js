@@ -11,7 +11,7 @@ export function helpText({ routerUrl, logDir, localModel }) {
 server (the computer that runs your local model).
 
   Claude models (opus, sonnet, ...) -> spark-router -> api.anthropic.com  (your claude.ai login)
-  Spark Agents (${localModel}) -> spark-router -> your AI server  (free, home network only)
+  Local Agents (${localModel}) -> spark-router -> your AI server  (free, home network only)
 
 Usage:
   claude-agents [claude-agents flags] [claude options and arguments]
@@ -49,7 +49,7 @@ All other arguments go to claude unchanged. Examples:
 Local model in a normal session:
   agents:        ask Claude to give a task to spark-agent (needs the agent file:
                  see examples/agents/spark-agent.md in this package)
-  whole session: /model -> "Spark Agents" -> press s (this session only)
+  whole session: /model -> "Local Agents" -> press s (this session only)
 
 Router: ${routerUrl} (SPARK_ROUTER_PORT changes it),
   started by claude-agents when needed.
@@ -149,7 +149,7 @@ export function buildSession({
   env = withVar(env, 'ANTHROPIC_AUTH_TOKEN', null);
   env = withVar(env, 'ANTHROPIC_BASE_URL', routerUrl);
   env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION', localModel);
-  env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'Spark Agents');
+  env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'Local Agents');
   env = withVar(
     env,
     'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION',

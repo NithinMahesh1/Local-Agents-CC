@@ -54,7 +54,7 @@ These Claude Code options are often useful with `claude-agents` (checked with Cl
 | :--- | :--- |
 | `claude-agents --setup` | First-time setup: saves the AI server's address, API key and model name. |
 | `claude-agents --benchmark` | Measures the speed of your AI server and exits. |
-| `claude-agents` | A normal session. Claude models go to Anthropic; your local model is in `/model` as "Spark Agents". |
+| `claude-agents` | A normal session. Claude models go to Anthropic; your local model is in `/model` as "Local Agents". |
 | `claude-agents -c` | Continues the last conversation in this folder. |
 | `claude-agents --all-local` | The whole session and its agents run on the AI server. |
 | `claude-agents --all-local -c` | Continues the last conversation, all on the AI server. |

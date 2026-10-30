@@ -43,6 +43,8 @@ It has two commands. The first is `spark-router`, a small router on your compute
 npm install -g local-agents-cc
 ```
 
+- On Windows, if `npm` says "running scripts is disabled on this system", allow local scripts for your user and run the command again: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. See [Troubleshooting](docs/troubleshooting.md).
+
 ### 2. Run the setup
 
 ```bash
@@ -69,7 +71,7 @@ claude-agents
 
 ### 4. Send work to your AI server
 
-- Whole session: in Claude Code, run `/model`, pick "Spark Agents", and press `s` (this session only).
+- Whole session: in Claude Code, run `/model`, pick "Local Agents", and press `s` (this session only).
 - Per-task agents: copy the example agent file to `~/.claude/agents/`. If your local model name is not `local-model`, change its `model:` line to that name. Then ask Claude to give a task to `spark-agent`.
 - Commands for macOS and Linux:
 

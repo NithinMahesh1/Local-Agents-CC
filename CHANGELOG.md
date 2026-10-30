@@ -4,7 +4,7 @@
 
 ### Features
 
-- `claude-agents` starts Claude Code with your local model in the `/model` menu as "Spark Agents", next to the Claude models.
+- `claude-agents` starts Claude Code with your local model in the `/model` menu as "Local Agents", next to the Claude models.
 - `spark-router` sends each request to your local model server or to Anthropic, by the model name in the request.
 - `--all-local` sends every request, from the main session and from agents, to your local model.
 - In `--all-local` sessions, a Stop hook sends the model back once when a reply says what the model will do next but makes no tool call. `claude-agents --missed-tool-calls` counts these events.

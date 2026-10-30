@@ -4,6 +4,15 @@ This document provides solutions to common problems when using Local-Agents-CC.
 
 [Back to the README](../README.md)
 
+## "running scripts is disabled on this system" (Windows, PowerShell)
+
+- Cause: PowerShell's execution policy blocks npm's `.ps1` command files, so `npm` and `claude-agents` do not run on a new Windows computer.
+- Fix: Allow local scripts for your user, then run the command again:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
 ## "spark-router did not start - see .../router-errors.log"
 
 - First: open that file. It names the reason.
@@ -98,6 +107,11 @@ kill $(lsof -t -iTCP:8799 -sTCP:LISTEN)
 
 - Cause: One AI server serves only a few agents at once. On a DGX Spark, it serves about 8 agents, or about 6 with gpt-oss-120b.
 - Fix: More agents cause a queue. Start fewer agents.
+
+## Claude Code prints "[claude-code:unrecognized_model]" for the local model
+
+- Cause: Your local model's name is not a Claude model name, so Claude Code does not recognize it. This is normal with a local model.
+- Fix: None needed. The request still goes to your AI server and works.
 
 ## Where are the logs?
 

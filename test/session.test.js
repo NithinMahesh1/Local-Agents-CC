@@ -83,7 +83,7 @@ test('buildSession normal mode', () => {
   assert.strictEqual(env.PATH, 'x');
   assert.strictEqual(env.ANTHROPIC_BASE_URL, routerUrl);
   assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION, localModel);
-  assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME, 'Spark Agents');
+  assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME, 'Local Agents');
   assert.strictEqual(
     env.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION,
     'Free local model on your AI server - exact, mechanical coding tasks',
