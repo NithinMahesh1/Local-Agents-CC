@@ -12,7 +12,7 @@
 [![Tested on NVIDIA DGX Spark](https://img.shields.io/badge/tested_on-NVIDIA_DGX_Spark-76B900?style=flat-square&logo=nvidia&logoColor=white)](#runs-on-nvidia-dgx-spark)
 [![MIT license](https://img.shields.io/badge/license-MIT-f4c430?style=flat-square)](LICENSE)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [DGX Spark](#runs-on-nvidia-dgx-spark) · [Configuration](#configuration) · [FAQ](#faq) · [Documentation](#documentation)
+[Quick start](#quick-start) · [Updating](#updating) · [How it works](#how-it-works) · [DGX Spark](#runs-on-nvidia-dgx-spark) · [Configuration](#configuration) · [FAQ](#faq) · [Documentation](#documentation)
 
 <code>npm install -g local-agents-cc</code>
 
@@ -84,6 +84,18 @@ Copy-Item "$(npm root -g)\local-agents-cc\examples\agents\spark-agent.md" "$HOME
 
 - Everything: `claude-agents --all-local` (see below).
 
+## Updating
+
+After you have installed it, get the newest version like this:
+
+```bash
+npm install -g local-agents-cc@latest
+```
+
+Then restart the router so it runs the new code. The old router keeps running in the background until you stop it (see the FAQ: "How do I stop or restart the router?"). The next `claude-agents` starts the new one.
+
+Your settings are kept: the address, key and model stay in `~/.config/local-model/`, so you do not set them up again.
+
 ## How it works
 
 ```mermaid
@@ -115,7 +127,7 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 
 | Variable | Default | What it does |
 |---|---|---|
-| (settings file) | - | `claude-agents --setup` writes the address and the model name to `~/.config/local-model/settings.json`. The environment variables below win over it. |
+| (settings file) | - | `claude-agents --setup` writes the address, the model name and the `/model` menu label to `~/.config/local-model/settings.json`. That file can also hold a `servers` list for more than one AI server (see [More than one local server](docs/multiple-servers.md)). The environment variables below win over it. |
 | `SPARK_ROUTER_PORT` | `8799` | Port the router listens on (127.0.0.1 only). |
 | `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated model names that go to the AI server. The first name is the one `claude-agents` offers in `/model` and uses for `--all-local`. |
 | `SPARK_ROUTER_LOCAL_URL` | `http://your-ai-server.local:8000` | Your AI server's address. |
@@ -126,6 +138,8 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | `120000` (set by `claude-agents`) | Context window that Claude Code assumes for the local model. Keep it under the model's real window, with room for the answer. If you set it yourself, the launcher keeps your value. |
 
 All settings, log locations and examples: [docs/configuration.md](docs/configuration.md).
+
+To send different models to different machines — for example a coding model on one computer and a documentation model on another — put a `servers` list in the settings file. See [More than one local server](docs/multiple-servers.md). The name shown for the local option in Claude Code's `/model` menu is set in `claude-agents --setup`; it defaults to "Local Agents".
 
 ## `--all-local` mode
 
@@ -219,6 +233,7 @@ No. Claude requests go to Anthropic, as before. Requests for the local model go 
 - [How it works](docs/how-it-works.md): the request flow, the routing rule and the safety rules.
 - [Command-line options](docs/command-line.md): every option of `claude-agents` and `spark-router`, with examples.
 - [Configuration](docs/configuration.md): every setting, the key file and the log files.
+- [More than one local server](docs/multiple-servers.md): route different model names to different machines, and name the `/model` menu entry.
 - [DGX Spark notes](docs/dgx-spark.md): serving a model on a DGX Spark with vLLM.
 - [Troubleshooting](docs/troubleshooting.md): error messages and their fixes.
 - [Example agent file](examples/agents/spark-agent.md): an agent for per-task work on your AI server.

@@ -105,8 +105,10 @@ export function parseArgs(argv) {
  * The environment and arguments for one claude session. Never changes its inputs.
  * @param {{ baseEnv: Record<string, string | undefined>, routerUrl: string,
  *   localModel: string, allLocal: boolean, claudeArgs: string[],
- *   pluginDir?: string | null }} options - pluginDir: the Claude Code plugin folder that an
- *   --all-local session loads (it holds the Stop hook), or null for none
+ *   pluginDir?: string | null, modelOptionName?: string }} options - modelOptionName: the
+ *   label of the local model in the /model menu (default "Local Agents"); pluginDir: the Claude
+ *   Code plugin folder that an --all-local session loads (it holds the Stop hook), or null for
+ *   none
  * @returns {{ env: Record<string, string>, args: string[], notes: string[] }}
  */
 export function buildSession({
@@ -116,6 +118,7 @@ export function buildSession({
   allLocal,
   claudeArgs,
   pluginDir = null,
+  modelOptionName = 'Local Agents',
 }) {
   let env = {};
   for (const [key, value] of Object.entries(baseEnv)) {
@@ -149,7 +152,7 @@ export function buildSession({
   env = withVar(env, 'ANTHROPIC_AUTH_TOKEN', null);
   env = withVar(env, 'ANTHROPIC_BASE_URL', routerUrl);
   env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION', localModel);
-  env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'Local Agents');
+  env = withVar(env, 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', modelOptionName);
   env = withVar(
     env,
     'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION',

@@ -85,6 +85,11 @@ test('buildSession normal mode', () => {
   assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION, localModel);
   assert.strictEqual(env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME, 'Local Agents');
   assert.strictEqual(
+    buildSession({ ...options, modelOptionName: 'Desk Model' }).env
+      .ANTHROPIC_CUSTOM_MODEL_OPTION_NAME,
+    'Desk Model',
+  );
+  assert.strictEqual(
     env.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION,
     'Free local model on your AI server - exact, mechanical coding tasks',
   );

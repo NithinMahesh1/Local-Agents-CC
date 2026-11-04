@@ -226,6 +226,7 @@ export async function main(argv, {
     baseEnv: env,
     routerUrl: config.routerUrl,
     localModel,
+    modelOptionName: config.modelOptionName,
     allLocal,
     claudeArgs,
     pluginDir: allLocal ? hookPluginDir(env, platform, note) : null,

@@ -18,6 +18,7 @@ export const HEALTH_PATH = '/__spark-router/health';
 export const DEFAULT_PORT = 8799;
 export const DEFAULT_LOCAL_MODEL = 'local-model';
 export const DEFAULT_LOCAL_URL = 'http://your-ai-server.local:8000';
+export const DEFAULT_MODEL_OPTION_NAME = 'Local Agents';
 
 /**
  * A problem in the settings file that `claude-agents --setup` writes. Running the setup again
@@ -36,14 +37,26 @@ export class SettingsFileError extends Error {}
  *     <home>/.config/local-model/api-key)
  *   SPARK_ROUTER_LOG_DIR       folder for the router's log files (default: see defaultLogDir)
  *
- * When SPARK_ROUTER_LOCAL_URL or SPARK_ROUTER_LOCAL_MODELS is not set, the value comes from
- * `settings` (see readSettingsFile), then from the default.
+ * The local servers come from the first of these that applies:
+ *   1. SPARK_ROUTER_LOCAL_URL or SPARK_ROUTER_LOCAL_MODELS is set: one server named "local".
+ *      A value that is not set comes from the legacy keys of `settings`, then the default.
+ *   2. `settings.servers` is set: one entry per server. The legacy keys are then ignored.
+ *   3. `settings.localUrl` or `settings.localModels` is set: one server named "local".
+ *   4. The defaults: one server named "local".
+ * `localUrl`, `localModels` and `keyFile` in the result are the values of the first server, so
+ * code that uses one server keeps working.
+ *
+ * `modelOptionName` is the label of the local model in the Claude Code /model menu. It comes
+ * from `settings.modelOptionName` (settings file only), else "Local Agents".
  *
  * @param {NodeJS.ProcessEnv} [env]
  * @param {NodeJS.Platform} [platform]
- * @param {{localUrl?: string, localModels?: string[]}} [settings]
+ * @param {{localUrl?: string, localModels?: string[], servers?: object[],
+ *   modelOptionName?: string}} [settings]
  * @returns {{port: number, localModels: string[], localUrl: string, keyFile: string,
- *   logDir: string, routerUrl: string}}
+ *   modelOptionName: string,
+ *   servers: {name: string, url: string, models: string[], type: 'anthropic' | 'openai',
+ *   keyFile: string}[], logDir: string, routerUrl: string}}
  * @throws {Error} when a variable holds a value that cannot be used
  * @throws {SettingsFileError} when a value from `settings` cannot be used
  */
@@ -51,20 +64,35 @@ export function readConfig(env = process.env, platform = process.platform, setti
   const paths = platform === 'win32' ? path.win32 : path.posix;
   const home = homeDir(env, platform);
   const port = parsePort(env.SPARK_ROUTER_PORT);
+  const defaultKeyFile = nonEmpty(env.SPARK_ROUTER_KEY_FILE)
+    ?? paths.join(home, '.config', 'local-model', 'api-key');
   const modelsFromEnv = nonEmpty(env.SPARK_ROUTER_LOCAL_MODELS);
   const urlFromEnv = nonEmpty(env.SPARK_ROUTER_LOCAL_URL);
+  let servers;
+  if (modelsFromEnv === undefined && urlFromEnv === undefined && settings.servers !== undefined) {
+    servers = normalizeServers(settings.servers, 'the settings file', defaultKeyFile);
+  } else {
+    servers = [{
+      name: 'local',
+      url: urlFromEnv !== undefined || settings.localUrl === undefined
+        ? parseLocalUrl(env.SPARK_ROUTER_LOCAL_URL, 'SPARK_ROUTER_LOCAL_URL')
+        : parseLocalUrl(settings.localUrl, '"localUrl" in the settings file', SettingsFileError),
+      models: modelsFromEnv !== undefined || settings.localModels === undefined
+        ? parseModelList(env.SPARK_ROUTER_LOCAL_MODELS, 'SPARK_ROUTER_LOCAL_MODELS')
+        : parseModelList(
+          settings.localModels.join(','), '"localModels" in the settings file', SettingsFileError,
+        ),
+      type: 'anthropic',
+      keyFile: defaultKeyFile,
+    }];
+  }
   return {
     port,
-    localModels: modelsFromEnv !== undefined || settings.localModels === undefined
-      ? parseModelList(env.SPARK_ROUTER_LOCAL_MODELS, 'SPARK_ROUTER_LOCAL_MODELS')
-      : parseModelList(
-        settings.localModels.join(','), '"localModels" in the settings file', SettingsFileError,
-      ),
-    localUrl: urlFromEnv !== undefined || settings.localUrl === undefined
-      ? parseLocalUrl(env.SPARK_ROUTER_LOCAL_URL, 'SPARK_ROUTER_LOCAL_URL')
-      : parseLocalUrl(settings.localUrl, '"localUrl" in the settings file', SettingsFileError),
-    keyFile: nonEmpty(env.SPARK_ROUTER_KEY_FILE)
-      ?? paths.join(home, '.config', 'local-model', 'api-key'),
+    localModels: servers[0].models,
+    localUrl: servers[0].url,
+    keyFile: servers[0].keyFile,
+    servers,
+    modelOptionName: nonEmpty(settings.modelOptionName) ?? DEFAULT_MODEL_OPTION_NAME,
     logDir: nonEmpty(env.SPARK_ROUTER_LOG_DIR) ?? defaultLogDir(env, platform, home),
     routerUrl: `http://127.0.0.1:${port}`,
   };
@@ -97,7 +125,8 @@ export function settingsFile(env = process.env, platform = process.platform) {
  * Reads the settings file. A file that does not exist gives {}. Other keys in the file are
  * kept, so a later version can add settings.
  * @param {string} file
- * @returns {{localUrl?: string, localModels?: string[]} & Record<string, unknown>}
+ * @returns {{localUrl?: string, localModels?: string[], servers?: object[]}
+ *   & Record<string, unknown>}
  * @throws {SettingsFileError} when the file cannot be read, is not JSON, or holds a value of
  *   the wrong type
  */
@@ -136,6 +165,14 @@ export function readSettingsFile(file) {
     throw new SettingsFileError(
       `"localModels" in the settings file ${file} must name at least one model`,
     );
+  }
+  if (settings.modelOptionName !== undefined && nonEmpty(settings.modelOptionName) === undefined) {
+    throw new SettingsFileError(
+      `"modelOptionName" in the settings file ${file} must be a non-empty string`,
+    );
+  }
+  if (settings.servers !== undefined) {
+    normalizeServers(settings.servers, `the settings file ${file}`, '');
   }
   return settings;
 }
@@ -261,6 +298,61 @@ function parseModelList(value, source, ErrorType = Error) {
     throw new ErrorType(`${source} must name at least one model (got "${value}")`);
   }
   return names;
+}
+
+// Checks the "servers" list of the settings file and returns it in one shape:
+// [{ name, url, models, type, keyFile }]. `where` names the file in the messages.
+function normalizeServers(list, where, defaultKeyFile) {
+  if (!Array.isArray(list) || list.length === 0) {
+    throw new SettingsFileError(`"servers" in ${where} must be a list with at least one server`);
+  }
+  const names = new Set();
+  const modelNames = new Set();
+  return list.map((item, index) => {
+    const label = `"servers[${index}]`;
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      throw new SettingsFileError(`${label}" in ${where} must be an object`);
+    }
+    const name = nonEmpty(item.name);
+    if (name === undefined) {
+      throw new SettingsFileError(`${label}.name" in ${where} must be a non-empty string`);
+    }
+    if (names.has(name.toLowerCase())) {
+      throw new SettingsFileError(`${label}.name" in ${where} repeats the server name "${name}"`);
+    }
+    names.add(name.toLowerCase());
+    if (nonEmpty(item.url) === undefined) {
+      throw new SettingsFileError(`${label}.url" in ${where} must be a non-empty string`);
+    }
+    const url = parseLocalUrl(item.url, `${label}.url" in ${where}`, SettingsFileError);
+    const models = normalizeServerModels(item.models, `${label}.models" in ${where}`, modelNames);
+    const type = item.type === undefined ? 'anthropic' : item.type;
+    if (type !== 'anthropic' && type !== 'openai') {
+      throw new SettingsFileError(
+        `${label}.type" in ${where} must be "anthropic" or "openai" (got ${JSON.stringify(type)})`,
+      );
+    }
+    if (item.keyFile !== undefined && nonEmpty(item.keyFile) === undefined) {
+      throw new SettingsFileError(`${label}.keyFile" in ${where} must be a non-empty string`);
+    }
+    return { name, url, models, type, keyFile: nonEmpty(item.keyFile) ?? defaultKeyFile };
+  });
+}
+
+// The model names of one server. A name must not appear twice in the whole list (any case).
+function normalizeServerModels(list, source, seen) {
+  if (!Array.isArray(list) || list.length === 0
+    || !list.every((name) => nonEmpty(name) !== undefined)) {
+    throw new SettingsFileError(`${source} must be a list of non-empty strings`);
+  }
+  return list.map((entry) => {
+    const name = entry.trim();
+    if (seen.has(name.toLowerCase())) {
+      throw new SettingsFileError(`${source} repeats the model name "${name}"`);
+    }
+    seen.add(name.toLowerCase());
+    return name;
+  });
 }
 
 function parseLocalUrl(value, source, ErrorType = Error) {

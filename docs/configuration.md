@@ -29,20 +29,31 @@ On Windows, use the following command in PowerShell, then open a new terminal:
 
 ## The settings file
 
-The command `claude-agents --setup` writes the address and the model name to a settings file.
-A settings file is a file that stores configuration.
+The command `claude-agents --setup` writes the address, the model name and the `/model` menu
+label to a settings file. A settings file is a file that stores configuration.
 
 The file path depends on your system:
 - Windows: `%USERPROFILE%\.config\local-model\settings.json`
 - macOS/Linux: `~/.config/local-model/settings.json`
 
-The file uses JSON. JSON is a text format for storing data. The file looks like this:
+The file uses JSON. JSON is a text format for storing data. For one AI server it looks like this:
 ```json
-{ "localUrl": "...", "localModels": ["..."] }
+{ "localUrl": "...", "localModels": ["..."], "modelOptionName": "Local Agents" }
 ```
 
-Environment variables win over the settings file.
-An environment variable is a setting in your operating system.
+- `localUrl`: the AI server's address.
+- `localModels`: the model names that go to that server. The first name is the one that
+  `claude-agents` offers in `/model` and uses for `--all-local`.
+- `modelOptionName`: the label shown for the local option in Claude Code's `/model` menu.
+  Optional; the default is "Local Agents".
+
+To use more than one AI server, replace `localUrl` and `localModels` with a `servers` list. Each
+entry has `name`, `url`, `models`, and optionally `type` and `keyFile`. A request goes to the
+server that lists its model name. See [More than one local server](multiple-servers.md).
+
+Environment variables win over the settings file. An environment variable is a setting in your
+operating system. The environment variables above set a single AI server; to name more than one
+server, use the `servers` list in this file.
 
 If you change the settings file, you must restart the router.
 

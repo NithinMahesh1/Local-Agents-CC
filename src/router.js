@@ -2,8 +2,9 @@
 // plan models and a local model on another machine (your "AI server").
 //
 // The one rule:
-//   * A request whose JSON body names a LOCAL model goes to your local model server (for
-//     example vLLM, or anything that serves the Anthropic Messages API), with the AI server's key.
+//   * A request whose JSON body names a LOCAL model goes to the local model server that serves
+//     that model (for example vLLM, or anything that serves the Anthropic Messages API), with
+//     that server's key. You can name more than one server; each model belongs to one server.
 //   * Every other request goes to https://api.anthropic.com UNCHANGED, so the claude.ai login
 //     that Claude Code sends keeps working and your plan pays.
 //
@@ -16,18 +17,18 @@
 //
 import http from 'node:http';
 import https from 'node:https';
-import { ANTHROPIC_URL, HEALTH_PATH, isLocalModel } from './config.js';
+import { ANTHROPIC_URL, HEALTH_PATH } from './config.js';
 import { clampBoxEffort } from './effort.js';
 
 /**
  * Starts the router on 127.0.0.1.
  * @param {object} options
  * @param {number} options.port - TCP port; 0 picks a free port (for tests)
- * @param {string[]} options.localModels - model names that go to the AI server (any case)
- * @param {string} options.localUrl - the AI server's base URL, for example
- *   http://your-ai-server.local:8000
- * @param {string} options.boxKey - the AI server's API key; sent only to the AI server, never
- *   logged
+ * @param {{name: string, url: string, models: string[], type: 'anthropic' | 'openai',
+ *   key: string}[]} options.servers - the local servers. A request for one of a server's models
+ *   (any case) goes to that server, with its key (never logged). A server of type 'openai' gets
+ *   no requests yet: the router answers 502. Each model name must belong to one server.
+ *   The first server is the one the health answer reports as local_model_server.
  * @param {string} [options.anthropicUrl] - default ANTHROPIC_URL; tests pass a local server
  * @param {(body: Buffer) => { body: Buffer, clamped: boolean }} [options.clampEffort]
  *   - default clampBoxEffort; called only for AI server requests
@@ -40,14 +41,19 @@ import { clampBoxEffort } from './effort.js';
 export async function startRouter(options) {
   const {
     port,
-    localModels,
-    localUrl,
-    boxKey,
     anthropicUrl = ANTHROPIC_URL,
     clampEffort = clampBoxEffort,
     log = createLogger(),
     maxBodyBytes = 256 * 1024 * 1024,
   } = options;
+  const { servers } = options;
+  // Lower-case model name -> the server that serves it.
+  const serverByModel = new Map();
+  for (const entry of servers) {
+    for (const modelName of entry.models) {
+      serverByModel.set(modelName.toLowerCase(), entry);
+    }
+  }
 
   const httpAgent = new http.Agent({ keepAlive: true });
   const httpsAgent = new https.Agent({ keepAlive: true });
@@ -88,44 +94,15 @@ export async function startRouter(options) {
 
       // 3. Health
       if (pathname === HEALTH_PATH) {
-        const healthUrl = new URL('/health', localUrl);
-        const probeReq = (healthUrl.protocol === 'https:' ? https : http).request(
-          healthUrl,
-          { method: 'GET', headers: {} }
-        );
-
-        let boxOk = false;
-        const probePromise = new Promise((resolve) => {
-          const timeout = setTimeout(() => {
-            probeReq.destroy();
-          }, 3000);
-
-          probeReq.on('response', (upstreamRes) => {
-            clearTimeout(timeout);
-            if (upstreamRes.statusCode >= 200 && upstreamRes.statusCode < 300) {
-              boxOk = true;
-            }
-            upstreamRes.resume();
-            resolve();
-          });
-          probeReq.on('error', () => {
-            clearTimeout(timeout);
-            boxOk = false;
-            resolve();
-          });
-          probeReq.on('close', () => {
-            clearTimeout(timeout);
-            resolve();
-          });
-        });
-
-        probeReq.end();
-        await probePromise;
-
+        const results = await Promise.all(servers.map((entry) => probeServer(entry.url)));
+        const serverHealth = Object.fromEntries(servers.map((entry, index) => {
+          return [entry.name, results[index] ? 'ok' : 'unreachable'];
+        }));
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({
           router: 'ok',
-          local_model_server: boxOk ? 'ok' : 'unreachable'
+          local_model_server: results[0] ? 'ok' : 'unreachable',
+          servers: serverHealth
         }));
         return;
       }
@@ -171,10 +148,23 @@ export async function startRouter(options) {
 
       // 6. Dest. The target is the origin plus the path, never new URL(path, base): a path
       // that starts with "//" (for example from "/a/..//other.host/") would name another host.
-      const toBox = model !== null && isLocalModel(localModels, model);
-      const dest = toBox ? 'LOCAL' : 'anthropic';
+      const localServer = model === null ? undefined : serverByModel.get(model.toLowerCase());
+      const toBox = localServer !== undefined;
+      const dest = toBox ? logSafe(localServer.name) : 'anthropic';
       const modelLog = model === null ? '-' : logSafe(model);
-      const target = new URL(new URL(toBox ? localUrl : anthropicUrl).origin + pathAndQuery);
+      if (toBox && localServer.type === 'openai') {
+        log.warn(`${req.method} ${pathname} model=${modelLog} -> ${dest} REFUSED ` +
+          `(the server uses the OpenAI API) ${Date.now() - start} ms`);
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end(errorJson(
+          `the local server '${localServer.name}' uses the OpenAI API; ` +
+          'spark-router cannot translate to it yet'
+        ));
+        return;
+      }
+      const target = new URL(
+        new URL(toBox ? localServer.url : anthropicUrl).origin + pathAndQuery
+      );
 
       // 7. Clamp
       let outBody = body;
@@ -197,7 +187,7 @@ export async function startRouter(options) {
         for (const cred of CLAUDE_CREDENTIALS) {
           delete headers[cred];
         }
-        headers['authorization'] = `Bearer ${boxKey}`;
+        headers['authorization'] = `Bearer ${localServer.key}`;
       }
       if (outBody.length > 0) {
         headers['content-length'] = String(outBody.length);
@@ -238,7 +228,9 @@ export async function startRouter(options) {
         log.warn(errMsg);
         if (!res.headersSent) {
           res.writeHead(502, { 'content-type': 'application/json' });
-          const targetName = toBox ? 'the local model server' : 'api.anthropic.com';
+          const targetName = toBox
+            ? `the local model server '${dest}'`
+            : 'api.anthropic.com';
           res.end(errorJson(`spark-router could not reach ${targetName}: ${error.message}`));
         } else {
           res.destroy();
@@ -311,9 +303,11 @@ export async function startRouter(options) {
   return new Promise((resolve, reject) => {
     const onListening = () => {
       const actualPort = server.address().port;
-      const origin = new URL(localUrl).origin;
-      const logMsg = `spark-router on http://127.0.0.1:${actualPort} | ` +
-        `${localModels.join(',')} -> ${origin} | everything else -> ${anthropicUrl}`;
+      const routes = servers.map((entry) => {
+        return `${entry.name}: ${entry.models.join(',')} -> ${new URL(entry.url).origin}`;
+      }).join(' | ');
+      const logMsg = `spark-router on http://127.0.0.1:${actualPort} | ${routes} | ` +
+        `everything else -> ${anthropicUrl}`;
       log.info(logMsg);
       resolve(server);
     };
@@ -323,6 +317,42 @@ export async function startRouter(options) {
     server.once('listening', onListening);
     server.once('error', onError);
     server.listen(port, '127.0.0.1');
+  });
+}
+
+// True when the server answers GET /health with a 2xx status within 3 seconds. Never throws.
+function probeServer(baseUrl) {
+  return new Promise((resolve) => {
+    let ok = false;
+    let probeReq;
+    try {
+      const healthUrl = new URL('/health', baseUrl);
+      probeReq = (healthUrl.protocol === 'https:' ? https : http).request(
+        healthUrl,
+        { method: 'GET', headers: {} }
+      );
+    } catch {
+      resolve(false);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      probeReq.destroy();
+    }, 3000);
+    probeReq.on('response', (upstreamRes) => {
+      ok = upstreamRes.statusCode >= 200 && upstreamRes.statusCode < 300;
+      upstreamRes.resume();
+      clearTimeout(timeout);
+      resolve(ok);
+    });
+    probeReq.on('error', () => {
+      clearTimeout(timeout);
+      resolve(false);
+    });
+    probeReq.on('close', () => {
+      clearTimeout(timeout);
+      resolve(ok);
+    });
+    probeReq.end();
   });
 }
 

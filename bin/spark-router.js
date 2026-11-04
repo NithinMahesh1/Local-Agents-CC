@@ -8,8 +8,8 @@ import { startRouter } from '../src/router.js';
 
 const HELP = `spark-router - the local router that claude-agents starts for you.
 
-Requests for a local model name go to your AI server. All other requests go to
-api.anthropic.com unchanged. The router listens on 127.0.0.1 only.
+Requests for a local model name go to the AI server that serves that model. All other
+requests go to api.anthropic.com unchanged. The router listens on 127.0.0.1 only.
 
 Usage:
   spark-router            run the router in this window (Ctrl+C stops it)
@@ -17,7 +17,9 @@ Usage:
   spark-router --version  show the version
 
 Settings: claude-agents --setup saves the address and the model name in
-<home>/.config/local-model/settings.json. These environment variables win over that file:
+<home>/.config/local-model/settings.json. To use more than one AI server, put a "servers"
+list in that file (each entry has name, url, models, and optionally type and keyFile).
+These environment variables win over that file:
   SPARK_ROUTER_PORT          port on 127.0.0.1 (default 8799)
   SPARK_ROUTER_LOCAL_MODELS  model names that go to the AI server (default local-model)
   SPARK_ROUTER_LOCAL_URL     your AI server's address (default http://your-ai-server.local:8000)
@@ -38,8 +40,16 @@ if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
 } else {
   try {
     const config = loadConfig();
-    const boxKey = readKeyFile(config.keyFile);
-    await startRouter({ ...config, boxKey });
+    // Read each key file once, even when several servers share it.
+    const keys = new Map();
+    const servers = config.servers.map((entry) => {
+      if (!keys.has(entry.keyFile)) {
+        keys.set(entry.keyFile, readKeyFile(entry.keyFile));
+      }
+      const { name, url, models, type } = entry;
+      return { name, url, models, type, key: keys.get(entry.keyFile) };
+    });
+    await startRouter({ port: config.port, servers });
   } catch (error) {
     process.stderr.write(`spark-router: ${error.message}\n`);
     process.exitCode = 1;

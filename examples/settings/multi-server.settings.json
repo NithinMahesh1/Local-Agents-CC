@@ -1,0 +1,6 @@
+{
+  "servers": [
+    { "name": "spark", "url": "http://your-ai-server.local:8000", "models": ["spark-coder"], "type": "anthropic" },
+    { "name": "desktop", "url": "http://127.0.0.1:1234", "models": ["desktop-docs"], "type": "openai" }
+  ]
+}

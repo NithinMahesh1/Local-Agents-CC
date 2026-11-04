@@ -12,7 +12,11 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
         path: '/__spark-router/health',
       });
       assert.strictEqual(status, 200);
-      assert.deepStrictEqual(JSON.parse(body), { router: 'ok', local_model_server: 'ok' });
+      assert.deepStrictEqual(JSON.parse(body), {
+        router: 'ok',
+        local_model_server: 'ok',
+        servers: { LOCAL: 'ok' },
+      });
       assert.strictEqual(box.requests[0].url, '/health');
       assert.strictEqual(box.requests[0].headers.authorization, undefined);
     });
@@ -30,14 +34,18 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
         path: '/__spark-router/health',
       });
       assert.strictEqual(status, 200);
-      assert.deepStrictEqual(JSON.parse(body), { router: 'ok', local_model_server: 'unreachable' });
+      assert.deepStrictEqual(JSON.parse(body), {
+        router: 'ok',
+        local_model_server: 'unreachable',
+        servers: { LOCAL: 'unreachable' },
+      });
     });
   });
 
   it('Health with no AI server', async () => {
     const deadPort = await freePort();
     await withRouter(
-      { router: { localUrl: `http://127.0.0.1:${deadPort}` } },
+      { boxUrl: `http://127.0.0.1:${deadPort}` },
       async ({ url }) => {
 
       const { status, body } = await send(url, {
@@ -45,14 +53,18 @@ describe('router health and streaming', { timeout: 10000 }, async () => {
         path: '/__spark-router/health',
       });
       assert.strictEqual(status, 200);
-      assert.deepStrictEqual(JSON.parse(body), { router: 'ok', local_model_server: 'unreachable' });
+      assert.deepStrictEqual(JSON.parse(body), {
+        router: 'ok',
+        local_model_server: 'unreachable',
+        servers: { LOCAL: 'unreachable' },
+      });
     });
   });
 
   it('AI server not reachable', async () => {
     const deadPort = await freePort();
     await withRouter(
-      { router: { localUrl: `http://127.0.0.1:${deadPort}` } },
+      { boxUrl: `http://127.0.0.1:${deadPort}` },
       async ({ url, logLines }) => {
 
       const { status, body } = await send(url, {

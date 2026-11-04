@@ -158,9 +158,13 @@ describe('router safety', { timeout: 10000 }, () => {
       await assert.rejects(
         startRouter({
           port: taken.port,
-          localModels: ['local-model'],
-          localUrl: 'http://127.0.0.1:9',
-          boxKey: 'k',
+          servers: [{
+            name: 'LOCAL',
+            url: 'http://127.0.0.1:9',
+            models: ['local-model'],
+            type: 'anthropic',
+            key: 'k',
+          }],
           log: { info() {}, warn() {} },
         }),
         { code: 'EADDRINUSE' },

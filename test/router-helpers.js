@@ -76,12 +76,13 @@ export async function freePort() {
  * The router routes LOCAL_MODEL to the AI server with BOX_KEY. Its log lines are collected in
  * logLines as "info: <message>" or "warn: <message>".
  * @param {{ box?: Respond, anthropic?: Respond, router?: object }} options - router: options
- *   for startRouter that replace the defaults (for example localUrl or maxBodyBytes)
+ *   for startRouter that replace the defaults (for example maxBodyBytes); boxUrl: the AI
+ *   server's address when it is not the fake one (for example a port with nothing on it)
  * @param {(context: { url: string, port: number, box: Awaited<ReturnType<typeof startFake>>,
  *   anthropic: Awaited<ReturnType<typeof startFake>>, logLines: string[] }) => Promise<void>} fn
  * @returns {Promise<void>}
  */
-export async function withRouter({ box, anthropic, router: routerOptions = {} }, fn) {
+export async function withRouter({ box, anthropic, boxUrl, router: routerOptions = {} }, fn) {
   const fakeBox = await startFake(box);
   const fakeAnthropic = await startFake(anthropic);
   const logLines = [];
@@ -93,9 +94,13 @@ export async function withRouter({ box, anthropic, router: routerOptions = {} },
   try {
     server = await startRouter({
       port: 0,
-      localModels: [LOCAL_MODEL],
-      localUrl: fakeBox.url,
-      boxKey: BOX_KEY,
+      servers: [{
+        name: 'LOCAL',
+        url: boxUrl ?? fakeBox.url,
+        models: [LOCAL_MODEL],
+        type: 'anthropic',
+        key: BOX_KEY,
+      }],
       anthropicUrl: fakeAnthropic.url,
       log,
       ...routerOptions,

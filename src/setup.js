@@ -1,5 +1,6 @@
-// claude-agents --setup: asks for the AI server's address, its API key and the model name,
-// saves them, and checks that the AI server answers. It does not start the router or Claude Code.
+// claude-agents --setup: asks for the AI server's address, its API key, the model name and the
+// label of the /model menu entry, saves them, and checks that the AI server answers. It does not
+// start the router or Claude Code.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -72,6 +73,9 @@ export async function runSetup({
     say('Checking the AI server...');
     const check = await checkServer({ localUrl, key, fetchFn, timeoutMs, say });
     const localModel = await askModel(reader, check.models, current.localModels[0], say);
+    const modelOptionName = await ask(
+      reader, 'Label for the /model menu entry', current.modelOptionName,
+    );
     if (!check.ok) {
       const save = await ask(reader, 'The checks failed. Save these settings anyway? (y/n)', 'n');
       if (!/^y/i.test(save)) {
@@ -83,12 +87,14 @@ export async function runSetup({
     if (isNew) {
       saveKeyFile(current.keyFile, key, platform);
     }
-    const settings = { ...readSettingsOrEmpty(file), localUrl, localModels: [localModel] };
+    const settings = {
+      ...readSettingsOrEmpty(file), localUrl, localModels: [localModel], modelOptionName,
+    };
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`);
 
     say();
-    say(`Saved. AI server: ${localUrl}  Model: ${localModel}`);
+    say(`Saved. AI server: ${localUrl}  Model: ${localModel}  Menu label: ${modelOptionName}`);
     for (const name of ['SPARK_ROUTER_LOCAL_URL', 'SPARK_ROUTER_LOCAL_MODELS']) {
       if (typeof env[name] === 'string' && env[name].trim() !== '') {
         say(`Note: ${name} is set, so its value is used instead of the saved one.`);

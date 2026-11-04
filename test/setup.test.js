@@ -185,7 +185,7 @@ describe('setup.js', () => {
     test('10. successful run', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n');
+      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -232,7 +232,7 @@ describe('setup.js', () => {
     }, async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n');
+      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -277,7 +277,7 @@ describe('setup.js', () => {
       );
 
       const input = new PassThrough();
-      input.end('\n\n\n'); // Keep address, keep key, default model
+      input.end('\n\n\n\n'); // Keep address, key, model and label
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -327,7 +327,7 @@ describe('setup.js', () => {
       );
 
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\n\n1\n');
+      input.end('http://127.0.0.1:9\n\n1\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -365,7 +365,7 @@ describe('setup.js', () => {
       fs.mkdirSync(path.dirname(sFile), { recursive: true });
       fs.writeFileSync(sFile, 'not json');
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nk\n\n');
+      input.end('http://127.0.0.1:9\nk\n\n\n');
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
       const fetchFn = async (url) => (url.endsWith('/health')
@@ -389,14 +389,44 @@ describe('setup.js', () => {
       assert.deepStrictEqual(readSettingsFile(sFile), {
         localUrl: 'http://127.0.0.1:9',
         localModels: ['m'],
+        modelOptionName: 'Local Agents',
       });
       assert.ok(fs.existsSync(path.join(tmpDir, '.config', 'local-model', 'api-key')));
+    });
+
+    test('13c. the menu label is saved, and is the default of the next run', async () => {
+      const { env } = setupTmp();
+      const sFile = settingsFile(env, 'linux');
+      const fetchFn = async (url) => (url.endsWith('/health')
+        ? { ok: true, status: 200 }
+        : { ok: true, status: 200, json: async () => ({ data: [{ id: 'm' }] }) });
+      const run = async (text) => {
+        const input = new PassThrough();
+        input.end(text);
+        const output = { write(t) { this.text += t; return true; } };
+        output.text = '';
+        const code = await runSetup({
+          env, platform: 'linux', input, output, fetchFn, timeoutMs: 1000,
+        });
+        return { code, output };
+      };
+
+      const first = await run('http://127.0.0.1:9\nk\n1\nDesk Model\n');
+      assert.strictEqual(first.code, 0);
+      assert.strictEqual(readSettingsFile(sFile).modelOptionName, 'Desk Model');
+      assert.match(first.output.text, /Menu label: Desk Model/);
+
+      // Address, key, model and label all kept.
+      const second = await run('\n\n\n\n');
+      assert.strictEqual(second.code, 0);
+      assert.ok(second.output.text.includes('Label for the /model menu entry [Desk Model]'));
+      assert.strictEqual(readSettingsFile(sFile).modelOptionName, 'Desk Model');
     });
 
     test('14. wrong key (no save)', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nbad-key\nmy-model\n\n');
+      input.end('http://127.0.0.1:9\nbad-key\nmy-model\n\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -432,7 +462,7 @@ describe('setup.js', () => {
     test('15. wrong key, saved anyway', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nbad-key\nmy-model\ny\n');
+      input.end('http://127.0.0.1:9\nbad-key\nmy-model\n\ny\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -515,7 +545,7 @@ describe('setup.js', () => {
       const { tmpDir, env } = setupTmp();
       env.SPARK_ROUTER_LOCAL_URL = 'http://127.0.0.1:7';
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n');
+      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
