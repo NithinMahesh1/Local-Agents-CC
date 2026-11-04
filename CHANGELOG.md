@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-11-04)
+
+### Features
+
+- `spark-router` can route to more than one named local server. A `servers` list in the settings file maps each model name to its own server, each with its own key. The single-server setup still works.
+- A server marked `type: "openai"` is reached through a built-in translator: each request becomes an OpenAI Chat Completions call, and the answer — text, streaming and tool calls — becomes an Anthropic response. This lets a server that speaks the OpenAI API, such as LM Studio or Ollama, be used. A server marked `type: "anthropic"` (for example vLLM) is sent on unchanged, as before.
+- `claude-agents --setup` asks for the label shown for the local model in Claude Code's `/model` menu, saved as `modelOptionName` (default "Local Agents").
+
 ## 0.1.0 (2026-10-26)
 
 ### Features

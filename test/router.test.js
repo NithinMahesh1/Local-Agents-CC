@@ -91,24 +91,292 @@ describe('router with more than one server', () => {
     });
   });
 
-  it('answers 502 for an openai server and does not forward the request', async () => {
-    await withServers({ typeB: 'openai' }, async ({ url, a, b, anthropic, logLines }) => {
+  // The answer of a fake OpenAI server: JSON, or an SSE stream written in odd pieces so that a
+  // "data:" line is split across two writes.
+  const openAIJson = (body) => (req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(body));
+  };
+  const openAIStream = (records) => async (req, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const text = records.map((record) => `data: ${record}\n\n`).join('');
+    const cut = Math.floor(text.length / 3);
+    res.write(text.slice(0, cut));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    res.write(text.slice(cut, 2 * cut));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    res.end(text.slice(2 * cut));
+  };
+  const SECRETS = ['secret text', 'key-A', 'key-B', 'claude-login', 'claude-cookie',
+    'query-secret'];
+  const sseTypes = (text) => [...text.matchAll(/^event: (\S+)$/gm)].map((match) => match[1]);
+
+  it('translates a request for an openai server and its non-streaming answer', async () => {
+    const answer = {
+      id: 'chatcmpl-1',
+      model: 'desktop-docs',
+      choices: [{ index: 0, message: { role: 'assistant', content: 'Hi there' },
+        finish_reason: 'stop' }],
+      usage: { prompt_tokens: 4, completion_tokens: 2 },
+    };
+    await withServers({ typeB: 'openai', desktop: openAIJson(answer) },
+      async ({ url, a, b, anthropic, logLines }) => {
+        const { status, headers, body } = await send(url, {
+          path: '/v1/messages?token=query-secret',
+          headers: { ...CLAUDE_HEADERS, 'anthropic-version': '2023-06-01' },
+          body: {
+            model: 'desktop-docs',
+            max_tokens: 50,
+            system: 'Be brief.',
+            messages: [{ role: 'user', content: 'secret text' }],
+          },
+        });
+        assert.strictEqual(status, 200);
+        assert.match(headers['content-type'], /^application\/json/);
+        assert.deepStrictEqual(JSON.parse(body), {
+          id: 'chatcmpl-1',
+          type: 'message',
+          role: 'assistant',
+          model: 'desktop-docs',
+          content: [{ type: 'text', text: 'Hi there' }],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 4, output_tokens: 2 },
+        });
+
+        assert.strictEqual(b.requests.length, 1);
+        const upstream = b.requests[0];
+        assert.strictEqual(upstream.method, 'POST');
+        assert.strictEqual(upstream.url, '/v1/chat/completions');
+        assert.strictEqual(upstream.headers.authorization, 'Bearer key-B');
+        assert.strictEqual(upstream.headers['x-api-key'], undefined);
+        assert.strictEqual(upstream.headers.cookie, undefined);
+        assert.strictEqual(upstream.headers['content-type'], 'application/json');
+        assert.strictEqual(upstream.headers['content-length'], String(upstream.body.length));
+        assert.deepStrictEqual(JSON.parse(upstream.body.toString('utf8')), {
+          model: 'desktop-docs',
+          max_tokens: 50,
+          messages: [
+            { role: 'system', content: 'Be brief.' },
+            { role: 'user', content: 'secret text' },
+          ],
+        });
+        assert.strictEqual(a.requests.length + anthropic.requests.length, 0);
+
+        const all = logLines.join('\n');
+        assert.match(all, /POST \/v1\/messages model=desktop-docs -> desktop 200 \d+ ms/);
+        for (const secret of SECRETS) {
+          assert.strictEqual(all.includes(secret), false, secret);
+        }
+      });
+  });
+
+  it('translates tool calls in a non-streaming answer', async () => {
+    const answer = {
+      id: 'c',
+      model: 'm',
+      choices: [{
+        message: { role: 'assistant', content: null, tool_calls: [
+          { id: 'call_1', type: 'function',
+            function: { name: 'ls', arguments: '{"path":"/tmp"}' } }] },
+        finish_reason: 'tool_calls',
+      }],
+    };
+    await withServers({ typeB: 'openai', desktop: openAIJson(answer) }, async ({ url, b }) => {
       const { status, body } = await send(url, {
-        headers: CLAUDE_HEADERS,
+        body: {
+          model: 'desktop-docs',
+          messages: [{ role: 'user', content: 'list' }],
+          tools: [{ name: 'ls', description: 'List', input_schema: { type: 'object' } }],
+          tool_choice: { type: 'any' },
+        },
+      });
+      assert.strictEqual(status, 200);
+      const json = JSON.parse(body);
+      assert.strictEqual(json.stop_reason, 'tool_use');
+      assert.deepStrictEqual(json.content, [
+        { type: 'tool_use', id: 'call_1', name: 'ls', input: { path: '/tmp' } },
+      ]);
+      const sent = JSON.parse(b.requests[0].body.toString('utf8'));
+      assert.deepStrictEqual(sent.tools, [{
+        type: 'function',
+        function: { name: 'ls', description: 'List', parameters: { type: 'object' } },
+      }]);
+      assert.strictEqual(sent.tool_choice, 'required');
+    });
+  });
+
+  it('translates a streaming text answer and asks for token counts', async () => {
+    const records = [
+      JSON.stringify({ id: 'c1', model: 'm',
+        choices: [{ delta: { role: 'assistant', content: '' } }] }),
+      JSON.stringify({ id: 'c1', model: 'm', choices: [{ delta: { content: 'Hel' } }] }),
+      JSON.stringify({ id: 'c1', model: 'm', choices: [{ delta: { content: 'lo' } }] }),
+      JSON.stringify({ id: 'c1', model: 'm', choices: [{ delta: {}, finish_reason: 'stop' }] }),
+      JSON.stringify({ id: 'c1', model: 'm', choices: [],
+        usage: { prompt_tokens: 9, completion_tokens: 2 } }),
+      '[DONE]',
+    ];
+    await withServers({ typeB: 'openai', desktop: openAIStream(records) },
+      async ({ url, a, b, logLines }) => {
+        const { status, headers, body } = await send(url, {
+          headers: CLAUDE_HEADERS,
+          body: { model: 'desktop-docs', stream: true,
+            messages: [{ role: 'user', content: 'secret text' }] },
+        });
+        assert.strictEqual(status, 200);
+        assert.match(headers['content-type'], /^text\/event-stream/);
+        assert.deepStrictEqual(sseTypes(body), [
+          'message_start', 'content_block_start', 'content_block_delta', 'content_block_delta',
+          'content_block_stop', 'message_delta', 'message_stop',
+        ]);
+        assert.ok(body.includes('"text":"Hel"'));
+        assert.ok(body.includes('"text":"lo"'));
+        assert.ok(body.includes('"stop_reason":"end_turn"'));
+        assert.ok(body.includes('"output_tokens":2'));
+
+        const sent = JSON.parse(b.requests[0].body.toString('utf8'));
+        assert.strictEqual(sent.stream, true);
+        assert.deepStrictEqual(sent.stream_options, { include_usage: true });
+        assert.strictEqual(b.requests[0].headers.authorization, 'Bearer key-B');
+        assert.strictEqual(b.requests[0].headers['x-api-key'], undefined);
+        assert.strictEqual(b.requests[0].headers.cookie, undefined);
+        assert.strictEqual(a.requests.length, 0);
+        const all = logLines.join('\n');
+        assert.match(all, /model=desktop-docs -> desktop 200/);
+        for (const secret of SECRETS) {
+          assert.strictEqual(all.includes(secret), false, secret);
+        }
+      });
+  });
+
+  it('translates a streaming tool call', async () => {
+    const chunk = (delta, finish) => JSON.stringify({
+      id: 'c2', model: 'm', choices: [{ delta, finish_reason: finish ?? null }],
+    });
+    const records = [
+      chunk({ tool_calls: [{ index: 0, id: 'call_7', type: 'function',
+        function: { name: 'ls', arguments: '' } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: '{"pa' } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: 'th":"/"}' } }] }),
+      chunk({}, 'tool_calls'),
+      '[DONE]',
+    ];
+    await withServers({ typeB: 'openai', desktop: openAIStream(records) }, async ({ url }) => {
+      const { status, body } = await send(url, {
+        body: { model: 'desktop-docs', stream: true, messages: [] },
+      });
+      assert.strictEqual(status, 200);
+      assert.deepStrictEqual(sseTypes(body), [
+        'message_start', 'content_block_start', 'content_block_delta', 'content_block_delta',
+        'content_block_stop', 'message_delta', 'message_stop',
+      ]);
+      assert.ok(body.includes('"type":"tool_use","id":"call_7","name":"ls"'));
+      assert.ok(body.includes('"type":"input_json_delta","partial_json":"{\\"pa"'));
+      assert.ok(body.includes('"stop_reason":"tool_use"'));
+    });
+  });
+
+  it('ends a stream with an error event when a chunk is not JSON', async () => {
+    await withServers({ typeB: 'openai', desktop: openAIStream(['{not json', '[DONE]']) },
+      async ({ url, logLines }) => {
+        const { status, body } = await send(url, {
+          body: { model: 'desktop-docs', stream: true, messages: [] },
+        });
+        assert.strictEqual(status, 200);
+        assert.ok(sseTypes(body).includes('error'));
+        assert.strictEqual(sseTypes(body).includes('message_stop'), false);
+        assert.ok(logLines.some((line) => line.startsWith('warn:')));
+      });
+  });
+
+  it('passes an error status of an openai server on, without its body', async () => {
+    const failing = (req, res) => {
+      res.writeHead(429, { 'content-type': 'application/json' });
+      res.end('{"error":{"message":"upstream secret text"}}');
+    };
+    await withServers({ typeB: 'openai', desktop: failing }, async ({ url, logLines }) => {
+      const { status, body } = await send(url, {
         body: { model: 'desktop-docs', messages: [{ role: 'user', content: 'secret text' }] },
       });
-      assert.strictEqual(status, 502);
+      assert.strictEqual(status, 429);
       assert.strictEqual(
-        JSON.parse(body).error.message,
-        "the local server 'desktop' uses the OpenAI API; spark-router cannot translate to it yet",
+        JSON.parse(body).error.message, "the local server 'desktop' answered HTTP 429",
       );
-      assert.strictEqual(a.requests.length + b.requests.length + anthropic.requests.length, 0);
-      const warns = logLines.filter((line) => line.startsWith('warn:'));
-      assert.strictEqual(warns.length, 1);
-      const all = logLines.join('\n');
-      for (const secret of ['secret text', 'key-A', 'key-B', 'claude-login', 'claude-cookie']) {
-        assert.strictEqual(all.includes(secret), false, secret);
+      assert.strictEqual(logLines.join('\n').includes('secret text'), false);
+    });
+  });
+
+  it('answers 502 when the answer of an openai server cannot be translated', async () => {
+    const odd = (req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{"choices":[]}');
+    };
+    await withServers({ typeB: 'openai', desktop: odd }, async ({ url }) => {
+      const { status, body } = await send(url, {
+        body: { model: 'desktop-docs', messages: [] },
+      });
+      assert.strictEqual(status, 502);
+      assert.match(JSON.parse(body).error.message, /could not translate the answer/);
+    });
+  });
+
+  it('answers 502 when the request cannot be translated, without forwarding', async () => {
+    await withServers({ typeB: 'openai' }, async ({ url, b }) => {
+      const { status, body } = await send(url, {
+        body: { model: 'desktop-docs', messages: [{ role: 'robot', content: 'secret text' }] },
+      });
+      assert.strictEqual(status, 502);
+      assert.match(JSON.parse(body).error.message, /could not translate the request/);
+      assert.strictEqual(body.includes('secret text'), false);
+      assert.strictEqual(b.requests.length, 0);
+    });
+  });
+
+  it('answers 502 when an openai server is down', async () => {
+    const deadPort = await freePort();
+    let router = null;
+    try {
+      router = await startRouter({
+        port: 0,
+        servers: [{ name: 'gone', url: `http://127.0.0.1:${deadPort}`, models: ['m1'],
+          type: 'openai', key: 'k' }],
+        log: { info() {}, warn() {} },
+      });
+      const url = `http://127.0.0.1:${router.address().port}`;
+      const { status, body } = await send(url, { body: { model: 'm1', messages: [] } });
+      assert.strictEqual(status, 502);
+      assert.match(JSON.parse(body).error.message, /could not reach the local model server/);
+    } finally {
+      if (router !== null) {
+        await closeServer(router);
       }
+    }
+  });
+
+  it('does not translate other /v1/messages paths for an openai server', async () => {
+    await withServers({ typeB: 'openai' }, async ({ url, a, b, anthropic }) => {
+      const { status } = await send(url, {
+        path: '/v1/messages/count_tokens',
+        body: { model: 'desktop-docs', messages: [] },
+      });
+      assert.strictEqual(status, 501);
+      assert.strictEqual(a.requests.length + b.requests.length + anthropic.requests.length, 0);
+    });
+  });
+
+  it('always uses the fixed chat completions path on an openai server origin', async () => {
+    await withServers({ typeB: 'openai' }, async ({ url, b }) => {
+      await send(url, {
+        path: '/v1/messages?x=@evil.example',
+        body: { model: 'desktop-docs', messages: [] },
+      });
+      await send(url, {
+        path: '/v1/messages?y=//evil.example/z',
+        body: { model: 'desktop-docs', messages: [] },
+      });
+      assert.deepStrictEqual(b.requests.map((request) => request.url),
+        ['/v1/chat/completions', '/v1/chat/completions']);
     });
   });
 

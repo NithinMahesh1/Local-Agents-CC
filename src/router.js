@@ -17,8 +17,12 @@
 //
 import http from 'node:http';
 import https from 'node:https';
+import { StringDecoder } from 'node:string_decoder';
 import { ANTHROPIC_URL, HEALTH_PATH } from './config.js';
 import { clampBoxEffort } from './effort.js';
+import {
+  anthropicToOpenAIRequest, createStreamTranslator, openAIToAnthropicResponse,
+} from './openai-translate.js';
 
 /**
  * Starts the router on 127.0.0.1.
@@ -26,8 +30,9 @@ import { clampBoxEffort } from './effort.js';
  * @param {number} options.port - TCP port; 0 picks a free port (for tests)
  * @param {{name: string, url: string, models: string[], type: 'anthropic' | 'openai',
  *   key: string}[]} options.servers - the local servers. A request for one of a server's models
- *   (any case) goes to that server, with its key (never logged). A server of type 'openai' gets
- *   no requests yet: the router answers 502. Each model name must belong to one server.
+ *   (any case) goes to that server, with its key (never logged). For a server of type 'openai'
+ *   the request is translated to POST /v1/chat/completions and the answer is translated back
+ *   (see openai-translate.js). Each model name must belong to one server.
  *   The first server is the one the health answer reports as local_model_server.
  * @param {string} [options.anthropicUrl] - default ANTHROPIC_URL; tests pass a local server
  * @param {(body: Buffer) => { body: Buffer, clamped: boolean }} [options.clampEffort]
@@ -62,6 +67,221 @@ export async function startRouter(options) {
     'trailer', 'upgrade', 'host', 'content-length', 'expect'
   ]);
   const CLAUDE_CREDENTIALS = new Set(['authorization', 'x-api-key', 'cookie']);
+
+  // The openai path: translate the Anthropic request to POST /v1/chat/completions, send it,
+  // and translate the answer back. The target is the server's origin plus a FIXED path: the
+  // path of the request is never used. Nothing from the message is written to the log.
+  const forwardOpenAI = ({ req, res, body, localServer, pathname, modelLog, dest, start }) => {
+    const elapsed = () => `${Date.now() - start} ms`;
+    const logDone = () => {
+      log.info(`${req.method} ${pathname} model=${modelLog} -> ${dest} 200 ${elapsed()}`);
+    };
+    const fail = (status, message, note) => {
+      log.warn(`${req.method} ${pathname} model=${modelLog} -> ${dest} FAILED (${note}) ` +
+        elapsed());
+      if (!res.headersSent) {
+        res.writeHead(status, { 'content-type': 'application/json' });
+        res.end(errorJson(message));
+      } else {
+        res.destroy();
+      }
+    };
+    const serverLabel = `the local server '${localServer.name}'`;
+
+    if (pathname.toLowerCase() !== '/v1/messages') {
+      fail(501, `spark-router cannot translate ${pathname} for ${serverLabel}, which uses the ` +
+        'OpenAI API', 'path not translated');
+      return;
+    }
+    let openAIBody;
+    try {
+      openAIBody = anthropicToOpenAIRequest(JSON.parse(body.toString('utf8')));
+    } catch {
+      fail(502, `spark-router could not translate the request for ${serverLabel}`,
+        'request not translated');
+      return;
+    }
+    const wantStream = openAIBody.stream === true;
+    if (wantStream) {
+      // Ask for the token counts: OpenAI servers send them in the last chunk only on request.
+      openAIBody.stream_options = { include_usage: true };
+    }
+    const outBody = Buffer.from(JSON.stringify(openAIBody), 'utf8');
+
+    const target = new URL(new URL(localServer.url).origin + '/v1/chat/completions');
+    const headers = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      const lowerKey = key.toLowerCase();
+      if (!HOP_BY_HOP.has(lowerKey) && !CLAUDE_CREDENTIALS.has(lowerKey)) {
+        headers[lowerKey] = value;
+      }
+    }
+    headers['content-type'] = 'application/json';
+    headers['accept'] = wantStream ? 'text/event-stream' : 'application/json';
+    headers['accept-encoding'] = 'identity';
+    headers['authorization'] = `Bearer ${localServer.key}`;
+    headers['content-length'] = String(outBody.length);
+
+    const agent = (target.protocol === 'https:' ? httpsAgent : httpAgent);
+    const upstreamReq = (target.protocol === 'https:' ? https : http).request(
+      target,
+      { method: 'POST', headers, agent }
+    );
+
+    let requestAborted = false;
+    upstreamReq.on('socket', (socket) => {
+      if (socket.connecting) {
+        const timeout = setTimeout(() => {
+          upstreamReq.destroy(new Error('could not connect within 15 s'));
+        }, 15000);
+        socket.once('connect', () => {
+          clearTimeout(timeout);
+        });
+      }
+    });
+    res.on('close', () => {
+      if (!res.writableFinished) {
+        requestAborted = true;
+        upstreamReq.destroy();
+      }
+    });
+    upstreamReq.on('error', (error) => {
+      if (requestAborted) {
+        return;
+      }
+      fail(502, `spark-router could not reach the local model server '${localServer.name}': ` +
+        error.message, error.message);
+    });
+
+    // Not a stream: read the whole JSON answer, then send it as an Anthropic message.
+    const relayJson = (upstreamRes) => {
+      const parts = [];
+      upstreamRes.on('data', (chunk) => parts.push(chunk));
+      upstreamRes.on('error', (err) => {
+        if (!requestAborted) {
+          fail(502, `${serverLabel} stopped answering`, err.message || 'aborted');
+        }
+      });
+      upstreamRes.on('end', () => {
+        if (requestAborted) {
+          return;
+        }
+        let answer;
+        try {
+          answer = JSON.stringify(
+            openAIToAnthropicResponse(JSON.parse(Buffer.concat(parts).toString('utf8')))
+          );
+        } catch {
+          fail(502, `spark-router could not translate the answer of ${serverLabel}`,
+            'answer not translated');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(answer);
+        logDone();
+      });
+    };
+
+    // A stream: split the upstream into "data:" lines, translate each, write the events.
+    const relayStream = (upstreamRes) => {
+      const translator = createStreamTranslator();
+      const decoder = new StringDecoder('utf8');
+      let pending = '';
+      let finished = false;
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+      res.flushHeaders();
+
+      // Ends the stream with an Anthropic error event. The message holds no message text.
+      const stop = (message, note) => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        log.warn(`${req.method} ${pathname} model=${modelLog} -> ${dest} FAILED (${note}) ` +
+          elapsed());
+        res.write(`event: error\ndata: ${errorJson(message)}\n\n`);
+        res.end();
+        upstreamReq.destroy();
+      };
+      const handleLine = (line) => {
+        const text = line.trim();
+        if (!text.startsWith('data:')) {
+          return;
+        }
+        const payload = text.slice(5).trim();
+        if (payload === '' || payload === '[DONE]') {
+          return;
+        }
+        for (const event of translator.push(JSON.parse(payload))) {
+          res.write(event);
+        }
+      };
+
+      upstreamRes.on('data', (chunk) => {
+        if (finished || requestAborted) {
+          return;
+        }
+        try {
+          pending += decoder.write(chunk);
+          let newline = pending.indexOf('\n');
+          while (newline !== -1) {
+            const line = pending.slice(0, newline);
+            pending = pending.slice(newline + 1);
+            handleLine(line);
+            newline = pending.indexOf('\n');
+          }
+        } catch {
+          stop(`spark-router could not translate the answer of ${serverLabel}`,
+            'answer not translated');
+        }
+      });
+      upstreamRes.on('error', (err) => {
+        if (!requestAborted) {
+          stop(`${serverLabel} stopped answering`, err.message || 'aborted');
+        }
+      });
+      upstreamRes.on('end', () => {
+        if (finished || requestAborted) {
+          return;
+        }
+        try {
+          pending += decoder.end();
+          handleLine(pending);
+        } catch {
+          stop(`spark-router could not translate the answer of ${serverLabel}`,
+            'answer not translated');
+          return;
+        }
+        finished = true;
+        for (const event of translator.end()) {
+          res.write(event);
+        }
+        res.end();
+        logDone();
+      });
+    };
+
+    upstreamReq.on('response', (upstreamRes) => {
+      if (requestAborted) {
+        return;
+      }
+      const status = upstreamRes.statusCode;
+      if (status < 200 || status >= 300) {
+        upstreamRes.resume();
+        const outStatus = status >= 400 && status <= 599 ? status : 502;
+        fail(outStatus, `${serverLabel} answered HTTP ${status}`, `HTTP ${status}`);
+        return;
+      }
+      if (wantStream) {
+        relayStream(upstreamRes);
+      } else {
+        relayJson(upstreamRes);
+      }
+    });
+
+    upstreamReq.write(outBody);
+    upstreamReq.end();
+  };
 
   const handler = async (req, res) => {
     const start = Date.now();
@@ -153,13 +373,7 @@ export async function startRouter(options) {
       const dest = toBox ? logSafe(localServer.name) : 'anthropic';
       const modelLog = model === null ? '-' : logSafe(model);
       if (toBox && localServer.type === 'openai') {
-        log.warn(`${req.method} ${pathname} model=${modelLog} -> ${dest} REFUSED ` +
-          `(the server uses the OpenAI API) ${Date.now() - start} ms`);
-        res.writeHead(502, { 'content-type': 'application/json' });
-        res.end(errorJson(
-          `the local server '${localServer.name}' uses the OpenAI API; ` +
-          'spark-router cannot translate to it yet'
-        ));
+        forwardOpenAI({ req, res, body, localServer, pathname, modelLog, dest, start });
         return;
       }
       const target = new URL(
