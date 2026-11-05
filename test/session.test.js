@@ -11,6 +11,7 @@ test('parseArgs([]) -> all flags off, claudeArgs []', () => {
     missedToolCalls: false,
     setup: false,
     benchmark: false,
+    addServer: false,
     showHelp: false
   });
 });
@@ -338,4 +339,21 @@ test('parseArgs(["--benchmark"]) -> benchmark true, claudeArgs []', () => {
 test('helpText mentions --benchmark', () => {
   const text = helpText({ routerUrl: 'http://127.0.0.1:1', logDir: '/l', localModel: 'm' });
   assert.ok(text.includes('--benchmark'));
+});
+
+test('parseArgs(["--add-server"]) -> addServer true, claudeArgs []', () => {
+  const result = parseArgs(['--add-server']);
+  assert.strictEqual(result.addServer, true);
+  assert.deepStrictEqual(result.claudeArgs, []);
+});
+
+test('parseArgs(["--add-server", "-c"]) -> addServer true, claudeArgs ["-c"]', () => {
+  const result = parseArgs(['--add-server', '-c']);
+  assert.strictEqual(result.addServer, true);
+  assert.deepStrictEqual(result.claudeArgs, ['-c']);
+});
+
+test('helpText mentions --add-server', () => {
+  const text = helpText({ routerUrl: 'http://127.0.0.1:1', logDir: '/l', localModel: 'm' });
+  assert.ok(text.includes('--add-server'));
 });

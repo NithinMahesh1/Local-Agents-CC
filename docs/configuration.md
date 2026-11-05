@@ -29,8 +29,7 @@ On Windows, use the following command in PowerShell, then open a new terminal:
 
 ## The settings file
 
-The command `claude-agents --setup` writes the address, the model name and the `/model` menu
-label to a settings file. A settings file is a file that stores configuration.
+The command `claude-agents --setup` asks for the AI server's address, software type, API key and model name, saves them, and checks the AI server. It writes the address, the model name, the type and the `/model` menu label to a settings file. A settings file is a file that stores configuration.
 
 The file path depends on your system:
 - Windows: `%USERPROFILE%\.config\local-model\settings.json`
@@ -48,7 +47,7 @@ The file uses JSON. JSON is a text format for storing data. For one AI server it
   Optional; the default is "Local Agents".
 
 To use more than one AI server, replace `localUrl` and `localModels` with a `servers` list. Each
-entry has `name`, `url`, `models`, and optionally `type` and `keyFile`. A request goes to the
+entry has `name`, `url`, `models`, and optionally `type` ("anthropic" or "openai") and `keyFile`. The `type` is set during `--setup`. A request goes to the
 server that lists its model name. See [More than one local server](multiple-servers.md).
 
 Environment variables win over the settings file. An environment variable is a setting in your

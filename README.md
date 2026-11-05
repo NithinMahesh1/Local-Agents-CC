@@ -127,7 +127,7 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 
 | Variable | Default | What it does |
 |---|---|---|
-| (settings file) | - | `claude-agents --setup` writes the address, the model name and the `/model` menu label to `~/.config/local-model/settings.json`. That file can also hold a `servers` list for more than one AI server (see [More than one local server](docs/multiple-servers.md)). The environment variables below win over it. |
+| (settings file) | - | `claude-agents --setup` writes the address, the model name and the `/model` menu label to `~/.config/local-model/settings.json`. That file can also hold a `servers` list for more than one AI server (see [More than one local server](docs/multiple-servers.md)). To add a server, use `claude-agents --add-server` (see [Adding a server later](docs/multiple-servers.md#adding-a-server-later)). The environment variables below win over it. |
 | `SPARK_ROUTER_PORT` | `8799` | Port the router listens on (127.0.0.1 only). |
 | `SPARK_ROUTER_LOCAL_MODELS` | `local-model` | Comma-separated model names that go to the AI server. The first name is the one `claude-agents` offers in `/model` and uses for `--all-local`. |
 | `SPARK_ROUTER_LOCAL_URL` | `http://your-ai-server.local:8000` | Your AI server's address. |
@@ -139,7 +139,7 @@ Local-Agents-CC was built for, and runs every day with, an NVIDIA DGX Spark as t
 
 All settings, log locations and examples: [docs/configuration.md](docs/configuration.md).
 
-To send different models to different machines — for example a coding model on one computer and a documentation model on another — put a `servers` list in the settings file. See [More than one local server](docs/multiple-servers.md). The name shown for the local option in Claude Code's `/model` menu is set in `claude-agents --setup`; it defaults to "Local Agents".
+To send different models to different machines — for example a coding model on one computer and a documentation model on another — put a `servers` list in the settings file. See [More than one local server](docs/multiple-servers.md). To add a server, use `claude-agents --add-server` (see [Adding a server later](docs/multiple-servers.md#adding-a-server-later)). The name shown for the local option in Claude Code's `/model` menu is set in `claude-agents --setup`; it defaults to "Local Agents".
 
 ## `--all-local` mode
 

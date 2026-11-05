@@ -25,6 +25,9 @@ claude-agents flags (in any position; they do not go to claude):
   --benchmark   Measure the speed of your AI server: 3 runs of one prompt, then exit. Prints
                 the time to the first token and the output speed in tokens per second.
                 Use it alone. Starts no router and no claude.
+  --add-server  Add another AI server, for a second machine or a local LM Studio or Ollama.
+                Asks for its name, address, software, API key and model name, checks it and
+                saves it, then exits. Use it alone. Starts no router and no claude.
   --all-local   Run EVERYTHING on the AI server: the main session, all agents and Claude
                 Code's background jobs. No request uses your Claude plan - for when the plan
                 limit is reached. Web search is off. Everything the session reads goes to
@@ -63,7 +66,7 @@ All options: https://github.com/NithinMahesh1/Local-Agents-CC/blob/main/docs/com
  * Splits the launcher's own flags from the arguments that go to claude.
  * @param {string[]} argv - the command-line arguments after the command name
  * @returns {{ allLocal: boolean, showHelp: boolean, setup: boolean, benchmark: boolean,
- *   missedToolCalls: boolean,
+ *   missedToolCalls: boolean, addServer: boolean,
  *   missedEventsFile: string | null, claudeArgs: string[] }} missedEventsFile is the value of
  *   --missed-events-file (as the next argument, or after "="), '' when the flag has no value,
  *   and null when the flag is not used
@@ -73,6 +76,7 @@ export function parseArgs(argv) {
   let allLocal = false;
   let setup = false;
   let benchmark = false;
+  let addServer = false;
   let missedToolCalls = false;
   let missedEventsFile = null;
   const claudeArgs = [];
@@ -84,6 +88,8 @@ export function parseArgs(argv) {
       setup = true;
     } else if (arg === '--benchmark') {
       benchmark = true;
+    } else if (arg === '--add-server') {
+      addServer = true;
     } else if (arg === '--missed-tool-calls') {
       missedToolCalls = true;
     } else if (arg === valueFlag) {
@@ -98,7 +104,10 @@ export function parseArgs(argv) {
   const showHelp =
     claudeArgs.length > 0 && claudeArgs.every((arg) => arg === '--help' || arg === '-h');
 
-  return { allLocal, showHelp, setup, benchmark, missedToolCalls, missedEventsFile, claudeArgs };
+  return {
+    allLocal, showHelp, setup, benchmark, addServer, missedToolCalls, missedEventsFile,
+    claudeArgs,
+  };
 }
 
 /**

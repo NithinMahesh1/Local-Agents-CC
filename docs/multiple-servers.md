@@ -33,7 +33,20 @@
 
 ## Server type
 - type "anthropic": the server already speaks the Anthropic Messages API (for example vLLM set up that way). This works now.
-- type "openai": the server speaks the OpenAI Chat Completions API (for example LM Studio or Ollama). spark-router cannot translate to it yet. This is planned for a later version.
+- type "openai": the server speaks the OpenAI Chat Completions API (for example LM Studio or Ollama). spark-router translates between the Anthropic and OpenAI formats, so these servers work.
+
+## Adding a server later
+
+To add a server without editing the settings file by hand, run `claude-agents --add-server`.
+It will ask you:
+- A name you choose for the new server.
+- Its address, for example `http://127.0.0.1:1234`.
+- Which software runs it (1 = vLLM, which serves the Anthropic API; 2 = LM Studio or Ollama, which serve the OpenAI API).
+- Its API key.
+- The model name.
+
+It checks that the server answers and then saves it.
+If your settings file only has one server, it moves that server into a "servers" list and offers to rename it.
 
 ## Safety
 - spark-router listens on 127.0.0.1 only.

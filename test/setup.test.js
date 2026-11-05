@@ -185,7 +185,7 @@ describe('setup.js', () => {
     test('10. successful run', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
+      input.end('http://127.0.0.1:9\n1\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -232,7 +232,7 @@ describe('setup.js', () => {
     }, async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
+      input.end('http://127.0.0.1:9\n1\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -277,7 +277,7 @@ describe('setup.js', () => {
       );
 
       const input = new PassThrough();
-      input.end('\n\n\n\n'); // Keep address, key, model and label
+      input.end('\n\n\n\n\n'); // Keep address, software, key, model and label
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -327,7 +327,7 @@ describe('setup.js', () => {
       );
 
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\n\n1\n\n');
+      input.end('http://127.0.0.1:9\n1\n\n1\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -365,7 +365,7 @@ describe('setup.js', () => {
       fs.mkdirSync(path.dirname(sFile), { recursive: true });
       fs.writeFileSync(sFile, 'not json');
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nk\n\n\n');
+      input.end('http://127.0.0.1:9\n1\nk\n\n\n');
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
       const fetchFn = async (url) => (url.endsWith('/health')
@@ -411,22 +411,87 @@ describe('setup.js', () => {
         return { code, output };
       };
 
-      const first = await run('http://127.0.0.1:9\nk\n1\nDesk Model\n');
+      const first = await run('http://127.0.0.1:9\n1\nk\n1\nDesk Model\n');
       assert.strictEqual(first.code, 0);
       assert.strictEqual(readSettingsFile(sFile).modelOptionName, 'Desk Model');
       assert.match(first.output.text, /Menu label: Desk Model/);
 
       // Address, key, model and label all kept.
-      const second = await run('\n\n\n\n');
+      const second = await run('\n\n\n\n\n');
       assert.strictEqual(second.code, 0);
       assert.ok(second.output.text.includes('Label for the /model menu entry [Desk Model]'));
       assert.strictEqual(readSettingsFile(sFile).modelOptionName, 'Desk Model');
     });
 
+    test('13d. an OpenAI-API server is saved as a one-entry servers list', async () => {
+      const { tmpDir, env } = setupTmp();
+      const input = new PassThrough();
+      input.end('http://127.0.0.1:1234\n2\nlmkey\nlm-model\n\n');
+
+      const output = { write(t) { this.text += t; return true; } };
+      output.text = '';
+
+      let healthCalls = 0;
+      const fetchFn = async (url) => {
+        if (url.endsWith('/health')) {
+          healthCalls += 1;
+          return { ok: true, status: 200 };
+        }
+        if (url.endsWith('/v1/models')) {
+          return { ok: true, status: 200, json: async () => ({ data: [{ id: 'lm-model' }] }) };
+        }
+        throw new Error('unexpected url');
+      };
+
+      const code = await runSetup({
+        env, platform: 'linux', input, output, fetchFn, timeoutMs: 1000,
+      });
+
+      assert.strictEqual(code, 0);
+      assert.strictEqual(healthCalls, 0);
+      const settings = readSettingsFile(settingsFile(env, 'linux'));
+      assert.strictEqual(settings.localUrl, undefined);
+      assert.strictEqual(settings.localModels, undefined);
+      assert.deepStrictEqual(settings.servers, [{
+        name: 'local',
+        url: 'http://127.0.0.1:1234',
+        models: ['lm-model'],
+        type: 'openai',
+        keyFile: path.posix.join(tmpDir, '.config', 'local-model', 'api-key'),
+      }]);
+    });
+
+    test('13e. the saved software type is the default of the next run', async () => {
+      const { env } = setupTmp();
+      const sFile = settingsFile(env, 'linux');
+      const fetchFn = async (url) => (url.endsWith('/v1/models')
+        ? { ok: true, status: 200, json: async () => ({ data: [{ id: 'lm' }] }) }
+        : { ok: true, status: 200 });
+      const run = async (text) => {
+        const input = new PassThrough();
+        input.end(text);
+        const output = { text: '', write(t) { this.text += t; return true; } };
+        const code = await runSetup({
+          env, platform: 'linux', input, output, fetchFn, timeoutMs: 1000,
+        });
+        return { code, output };
+      };
+
+      const first = await run('http://127.0.0.1:1234\n2\nlmkey\nlm\n\n');
+      assert.strictEqual(first.code, 0);
+      assert.strictEqual(readSettingsFile(sFile).servers[0].type, 'openai');
+
+      // Keep everything; the empty software answer keeps "openai".
+      const second = await run('\n\n\n\n\n');
+      assert.strictEqual(second.code, 0);
+      assert.ok(second.output.text.includes('Software (1 or 2) [2]'));
+      assert.strictEqual(readSettingsFile(sFile).servers[0].type, 'openai');
+    });
+
     test('14. wrong key (no save)', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nbad-key\nmy-model\n\n\n');
+      input.end('http://127.0.0.1:9\n1\nbad-key\nmy-model\n\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -462,7 +527,7 @@ describe('setup.js', () => {
     test('15. wrong key, saved anyway', async () => {
       const { tmpDir, env } = setupTmp();
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\nbad-key\nmy-model\n\ny\n');
+      input.end('http://127.0.0.1:9\n1\nbad-key\nmy-model\n\ny\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';
@@ -545,7 +610,7 @@ describe('setup.js', () => {
       const { tmpDir, env } = setupTmp();
       env.SPARK_ROUTER_LOCAL_URL = 'http://127.0.0.1:7';
       const input = new PassThrough();
-      input.end('http://127.0.0.1:9\ngood-key\n2\n\n');
+      input.end('http://127.0.0.1:9\n1\ngood-key\n2\n\n');
 
       const output = { write(t) { this.text += t; return true; } };
       output.text = '';

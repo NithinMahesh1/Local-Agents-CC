@@ -67,11 +67,12 @@ export async function runSetup({
 
     const oldUrl = current.localUrl === DEFAULT_LOCAL_URL ? undefined : current.localUrl;
     const localUrl = await askUrl(reader, oldUrl, say);
+    const type = await askSoftware(reader, current.servers?.[0]?.type ?? 'anthropic', say);
     const { key, isNew } = await askKey(reader, current.keyFile, say);
 
     say();
     say('Checking the AI server...');
-    const check = await checkServer({ localUrl, key, fetchFn, timeoutMs, say });
+    const check = await checkServer({ localUrl, key, type, fetchFn, timeoutMs, say });
     const localModel = await askModel(reader, check.models, current.localModels[0], say);
     const modelOptionName = await ask(
       reader, 'Label for the /model menu entry', current.modelOptionName,
@@ -87,9 +88,20 @@ export async function runSetup({
     if (isNew) {
       saveKeyFile(current.keyFile, key, platform);
     }
-    const settings = {
-      ...readSettingsOrEmpty(file), localUrl, localModels: [localModel], modelOptionName,
-    };
+    // A single vLLM server stays in the simple localUrl/localModels shape (back-compatible).
+    // An OpenAI-API server needs the "servers" list, because only that shape carries the type.
+    const base = readSettingsOrEmpty(file);
+    const { localUrl: _oldUrl, localModels: _oldModels, servers: _oldServers, ...rest } = base;
+    const settings = type === 'openai'
+      ? {
+        ...rest,
+        servers: [{
+          name: 'local', url: localUrl, models: [localModel], type: 'openai',
+          keyFile: current.keyFile,
+        }],
+        modelOptionName,
+      }
+      : { ...rest, localUrl, localModels: [localModel], modelOptionName };
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`);
 
@@ -280,23 +292,30 @@ export function normalizeServerUrl(text) {
 }
 
 /**
- * Checks the AI server: GET /health (no key needed) and GET /v1/models (with the key).
- * @returns {Promise<{ok: boolean, models: string[]}>} ok is true when both checks pass
+ * Checks the AI server. For vLLM (type "anthropic"): GET /health (no key needed) and GET
+ * /v1/models (with the key). For LM Studio or Ollama (type "openai"): GET /v1/models only,
+ * because those servers have no /health path.
+ * @param {{localUrl: string, key: string, type?: 'anthropic' | 'openai', fetchFn: typeof fetch,
+ *   timeoutMs: number, say: (text: string) => void}} options
+ * @returns {Promise<{ok: boolean, models: string[]}>} ok is true when the checks pass
  */
-export async function checkServer({ localUrl, key, fetchFn, timeoutMs, say }) {
+export async function checkServer({ localUrl, key, type = 'anthropic', fetchFn, timeoutMs, say }) {
   const origin = new URL(localUrl).origin;
-  try {
-    const health = await fetchFn(`${origin}/health`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!health.ok) {
-      say(`- The AI server answered /health with HTTP ${health.status}. Is the model still `
-        + 'starting?');
+  // LM Studio and Ollama (the OpenAI API) have no /health path, so only vLLM is asked.
+  if (type !== 'openai') {
+    try {
+      const health = await fetchFn(`${origin}/health`, { signal: AbortSignal.timeout(timeoutMs) });
+      if (!health.ok) {
+        say(`- The AI server answered /health with HTTP ${health.status}. Is the model still `
+          + 'starting?');
+        return { ok: false, models: [] };
+      }
+      say('- The AI server answers.');
+    } catch (error) {
+      say(`- No answer from ${origin}/health (${reasonOf(error)}). Check the address, and that `
+        + 'the AI server is on.');
       return { ok: false, models: [] };
     }
-    say('- The AI server answers.');
-  } catch (error) {
-    say(`- No answer from ${origin}/health (${reasonOf(error)}). Check the address, and that `
-      + 'the AI server is on.');
-    return { ok: false, models: [] };
   }
 
   try {
@@ -337,7 +356,18 @@ async function askUrl(reader, oldUrl, say) {
   throw new Error('no usable AI server address after 3 tries');
 }
 
-async function askKey(reader, keyFile, say) {
+// Asks which software runs the AI server and returns the API type it serves: "anthropic" for
+// vLLM, "openai" for LM Studio or Ollama.
+export async function askSoftware(reader, oldType, say) {
+  say('Which software runs this AI server?');
+  say('  1. vLLM - serves the Anthropic API (the default)');
+  say('  2. LM Studio or Ollama - serves the OpenAI API');
+  const fallback = oldType === 'openai' ? '2' : '1';
+  const answer = await ask(reader, 'Software (1 or 2)', fallback);
+  return answer.trim() === '2' ? 'openai' : 'anthropic';
+}
+
+export async function askKey(reader, keyFile, say) {
   let savedKey = null;
   try {
     savedKey = readKeyFile(keyFile);
@@ -365,7 +395,7 @@ async function askKey(reader, keyFile, say) {
   throw new Error('no API key after 3 tries');
 }
 
-async function askModel(reader, models, oldModel, say) {
+export async function askModel(reader, models, oldModel, say) {
   if (models.length === 0) {
     return ask(reader, 'Model name (the name your AI server serves)', oldModel);
   }
@@ -377,7 +407,7 @@ async function askModel(reader, models, oldModel, say) {
   return number >= 1 && number <= models.length ? models[number - 1] : answer;
 }
 
-async function ask(reader, prompt, fallback) {
+export async function ask(reader, prompt, fallback) {
   const suffix = fallback === undefined || fallback === '' ? ': ' : ` [${fallback}]: `;
   const answer = (await reader.question(`${prompt}${suffix}`)).trim();
   return answer === '' ? (fallback ?? '') : answer;
@@ -394,7 +424,7 @@ function envProblem(env, platform) {
 }
 
 // The environment without the variables that readConfig checks, for a start from the defaults.
-function withoutRouterVars(env) {
+export function withoutRouterVars(env) {
   const {
     SPARK_ROUTER_LOCAL_URL: _url, SPARK_ROUTER_LOCAL_MODELS: _models, SPARK_ROUTER_PORT: _port,
     ...rest
@@ -403,7 +433,7 @@ function withoutRouterVars(env) {
 }
 
 // The settings file, or {} when it cannot be read: setup replaces a broken file.
-function readSettingsOrEmpty(file) {
+export function readSettingsOrEmpty(file) {
   try {
     return readSettingsFile(file);
   } catch {
@@ -412,7 +442,7 @@ function readSettingsOrEmpty(file) {
 }
 
 // Writes the key with a line break. Only the owner can read the file (on macOS and Linux).
-function saveKeyFile(keyFile, key, platform) {
+export function saveKeyFile(keyFile, key, platform) {
   fs.mkdirSync(path.dirname(keyFile), { recursive: true, mode: 0o700 });
   fs.writeFileSync(keyFile, `${key}\n`, { mode: 0o600 });
   if (platform !== 'win32') {

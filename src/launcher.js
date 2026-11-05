@@ -14,6 +14,7 @@ import {
   HEALTH_PATH, SettingsFileError, isLocalModel, loadConfig, missedEventsFile, readKeyFile,
 } from './config.js';
 import { formatMissedSummary, parseMissedEvents, summarizeMissedEvents } from './missed-events.js';
+import { runAddServer } from './add-server.js';
 import { buildSession, helpText, parseArgs } from './session.js';
 import { runSetup } from './setup.js';
 import { claudeSettingsPath, readSavedModel, restoreSavedModel } from './settings-guard.js';
@@ -148,8 +149,8 @@ export async function main(argv, {
 } = {}) {
   const note = (message) => stderr.write(`claude-agents: ${message}\n`);
   const {
-    allLocal, showHelp, setup, benchmark, missedToolCalls, missedEventsFile: eventsFileArg,
-    claudeArgs,
+    allLocal, showHelp, setup, benchmark, addServer, missedToolCalls,
+    missedEventsFile: eventsFileArg, claudeArgs,
   } = parseArgs(argv);
 
   if (setup) {
@@ -159,6 +160,18 @@ export async function main(argv, {
     }
     try {
       return await runSetup({ env, platform, input: stdin, output: stdout });
+    } catch (error) {
+      note(error.message);
+      return 1;
+    }
+  }
+  if (addServer) {
+    if (argv.length !== 1) {
+      note('--add-server works only alone: claude-agents --add-server');
+      return 1;
+    }
+    try {
+      return await runAddServer({ env, platform, input: stdin, output: stdout });
     } catch (error) {
       note(error.message);
       return 1;
